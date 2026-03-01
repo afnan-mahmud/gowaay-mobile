@@ -35,6 +35,7 @@ export default function LoginScreen({ navigation, route }: any) {
   const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [pendingHostApplication, setPendingHostApplication] = useState(false);
 
   const redirectTo     = route?.params?.redirectTo;
   const redirectParams = route?.params?.redirectParams;
@@ -87,14 +88,18 @@ export default function LoginScreen({ navigation, route }: any) {
     try {
       const result = await loginWithOtp(normalizedPhone, otpCode, isNewUser ? name : undefined);
       if (result.success) {
-        if (redirectTo) navigation.replace(redirectTo, redirectParams);
+        if (pendingHostApplication) {
+          setTimeout(() => navigation.navigate('HostApplication'), 150);
+        } else if (redirectTo) {
+          navigation.replace(redirectTo, redirectParams);
+        }
       } else {
         setError(result.message || 'Verification failed');
       }
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please try again.');
     } finally { setLoading(false); }
-  }, [otp, isNewUser, name, normalizedPhone, step, loginWithOtp, navigation, redirectTo, redirectParams]);
+  }, [otp, isNewUser, name, normalizedPhone, step, loginWithOtp, navigation, redirectTo, redirectParams, pendingHostApplication]);
 
   const handleResendOTP = useCallback(async () => {
     setError(''); setLoading(true);
@@ -115,7 +120,7 @@ export default function LoginScreen({ navigation, route }: any) {
   }, [name, handleVerifyOTP]);
 
   const handleJoinAsHost = () => {
-    Alert.alert('Join as Host', 'To become a host, please visit gowaay.com/join-host from your browser.', [{ text: 'OK' }]);
+    setPendingHostApplication(true);
   };
 
   return (
@@ -153,10 +158,14 @@ export default function LoginScreen({ navigation, route }: any) {
 
           {/* Step title */}
           <Text style={S.title}>
-            {step === 'phone' ? 'Log in or sign up' : step === 'otp' ? 'Confirm your number' : "What's your name?"}
+            {step === 'phone'
+              ? (pendingHostApplication ? 'Join as Host' : 'Log in or sign up')
+              : step === 'otp' ? 'Confirm your number' : "What's your name?"}
           </Text>
           <Text style={S.subtitle}>
-            {step === 'phone' && 'Enter your phone number to continue'}
+            {step === 'phone' && (pendingHostApplication
+              ? 'Enter your phone number to get started as a host'
+              : 'Enter your phone number to continue')}
             {step === 'otp' && <>Enter the 6-digit code sent to{'\n'}<Text style={S.phoneHL}>+880{normalizedPhone.startsWith('0') ? normalizedPhone.slice(1) : normalizedPhone}</Text></>}
             {step === 'name' && "This is how you'll appear on GoWaay."}
           </Text>
@@ -240,16 +249,23 @@ export default function LoginScreen({ navigation, route }: any) {
             </>
           )}
 
-          {/* Join as Host */}
+          {/* Join as Host / Back to Login */}
           {step === 'phone' && (
             <>
               <View style={S.divider}>
                 <View style={S.divLine} /><Text style={S.divText}>or</Text><View style={S.divLine} />
               </View>
-              <TouchableOpacity onPress={handleJoinAsHost} style={S.joinHostBtn}>
-                <Icon name="business-outline" size={18} color={Colors.textPrimary} />
-                <Text style={S.joinHostText}>Join as Host</Text>
-              </TouchableOpacity>
+              {pendingHostApplication ? (
+                <TouchableOpacity onPress={() => setPendingHostApplication(false)} style={S.joinHostBtn}>
+                  <Icon name="person-outline" size={18} color={Colors.textPrimary} />
+                  <Text style={S.joinHostText}>Back to Login</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={handleJoinAsHost} style={S.joinHostBtn}>
+                  <Icon name="business-outline" size={18} color={Colors.textPrimary} />
+                  <Text style={S.joinHostText}>Join as Host</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>

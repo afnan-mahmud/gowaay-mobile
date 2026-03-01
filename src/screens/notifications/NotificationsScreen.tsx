@@ -165,11 +165,11 @@ export default function NotificationsScreen({ navigation }: any) {
     
     switch (notification.type) {
       case 'booking_request':
-        if (data.bookingId) {
-          navigation.navigate('BookingDetail', { bookingId: data.bookingId });
-        }
-        break;
       case 'booking_approved':
+      case 'booking_rejected':
+      case 'booking_cancelled':
+      case 'payment_success':
+      case 'payment_failed':
         if (data.bookingId) {
           navigation.navigate('BookingDetail', { bookingId: data.bookingId });
         }
@@ -179,18 +179,46 @@ export default function NotificationsScreen({ navigation }: any) {
           navigation.navigate('Chat', { threadId: data.threadId });
         }
         break;
-      case 'payment_success':
-        if (data.bookingId) {
-          navigation.navigate('BookingDetail', { bookingId: data.bookingId });
+      // Admin notification types — navigate to relevant admin management screen
+      case 'system':
+        if (data.type === 'admin_host_application' || data.hostId) {
+          navigation.navigate('AdminHosts');
+        } else if (data.type === 'admin_room_listing' || data.roomId) {
+          navigation.navigate('AdminRooms');
+        } else if (
+          data.type === 'admin_booking_request' ||
+          data.type === 'admin_booking_confirmed'
+        ) {
+          if (data.bookingId) {
+            navigation.navigate('BookingDetail', { bookingId: data.bookingId });
+          } else {
+            navigation.navigate('AdminBookings');
+          }
         }
         break;
       default:
-        // For other types, just mark as read
+        // For unrecognised types, just mark as read (no navigation)
         break;
     }
   };
 
-  const getNotificationIconName = (type: string): { name: string; color: string } => {
+  const getNotificationIconName = (type: string, data?: Record<string, any>): { name: string; color: string } => {
+    // For system (admin) notifications, pick icon based on sub-type in data
+    if (type === 'system' && data?.type) {
+      switch (data.type) {
+        case 'admin_host_application':
+          return { name: 'person-add-outline', color: Colors.brand };
+        case 'admin_room_listing':
+          return { name: 'home-outline', color: Colors.brand };
+        case 'admin_booking_request':
+          return { name: 'calendar-outline', color: Colors.brand };
+        case 'admin_booking_confirmed':
+          return { name: 'card-outline', color: Colors.success };
+        default:
+          return { name: 'shield-outline', color: Colors.brand };
+      }
+    }
+
     switch (type) {
       case 'booking_request':
         return { name: 'home-outline', color: Colors.brand };
@@ -208,6 +236,8 @@ export default function NotificationsScreen({ navigation }: any) {
         return { name: 'warning-outline', color: Colors.warning };
       case 'review':
         return { name: 'star-outline', color: '#FFC107' };
+      case 'system':
+        return { name: 'shield-outline', color: Colors.brand };
       default:
         return { name: 'notifications-outline', color: Colors.brand };
     }
@@ -251,9 +281,9 @@ export default function NotificationsScreen({ navigation }: any) {
         <View style={styles.notificationContent}>
           <View style={styles.iconContainer}>
             <Icon
-              name={getNotificationIconName(item.type).name}
+              name={getNotificationIconName(item.type, item.data).name}
               size={24}
-              color={getNotificationIconName(item.type).color}
+              color={getNotificationIconName(item.type, item.data).color}
               style={styles.notificationIcon}
             />
             {!item.read && <View style={styles.unreadDot} />}

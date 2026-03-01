@@ -21,6 +21,13 @@ interface WithAuthOptions {
   role?: 'guest' | 'host' | 'admin';
 }
 
+// Role hierarchy: admin > host > guest
+const ROLE_RANK: Record<string, number> = { guest: 1, host: 2, admin: 3 };
+
+function hasRoleAccess(userRole: string | undefined, requiredRole: string): boolean {
+  return (ROLE_RANK[userRole || ''] || 0) >= (ROLE_RANK[requiredRole] || 0);
+}
+
 export function withAuth<P extends object>(
   WrappedComponent: React.ComponentType<P>,
   options?: WithAuthOptions
@@ -33,8 +40,6 @@ export function withAuth<P extends object>(
       if (loading) return;
 
       if (!isAuthenticated) {
-        // Navigate to Login and replace the current screen so the user
-        // can't press "back" to reach the protected screen.
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
@@ -46,9 +51,7 @@ export function withAuth<P extends object>(
         return;
       }
 
-      // Check role if required
-      if (options?.role && user?.role !== options.role) {
-        // If wrong role, go back or go to MainTabs
+      if (options?.role && !hasRoleAccess(user?.role, options.role)) {
         if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
@@ -78,7 +81,7 @@ export function withAuth<P extends object>(
       );
     }
 
-    if (options?.role && user?.role !== options.role) {
+    if (options?.role && !hasRoleAccess(user?.role, options.role)) {
       return (
         <View style={styles.container}>
           <Text style={styles.text}>Access denied</Text>

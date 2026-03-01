@@ -241,7 +241,7 @@ const SC = StyleSheet.create({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [rooms, setRooms]       = useState<Room[]>([]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -250,6 +250,15 @@ export default function HomeScreen({ navigation }: any) {
   const [activeCategory, setActiveCategory] = useState('all');
 
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Navigate to a screen that requires login; redirect guest to LoginScreen
+  const navigateSafe = useCallback((screen: string, params?: object) => {
+    if (!isAuthenticated) {
+      navigation.navigate('LoginScreen');
+      return;
+    }
+    navigation.navigate(screen, params);
+  }, [isAuthenticated, navigation]);
 
   useEffect(() => { loadRooms(); }, []);
 
@@ -307,32 +316,37 @@ export default function HomeScreen({ navigation }: any) {
           <View style={S.heroAccentCircle2} />
           <View style={S.heroAccentCircle3} />
 
-          <Animated.View style={[S.heroContent, { transform: [{ scale: heroScale }], opacity: heroOpacity }]}>
-            {/* Top bar */}
-            <View style={S.heroTopBar}>
-              <View>
-                <Text style={S.heroEyebrow}>{timeGreeting()}</Text>
-                <Text style={S.heroName}>
-                  {user?.name ? user.name.split(' ')[0] : 'Traveller'} 👋
-                </Text>
-              </View>
-              <View style={S.heroActions}>
-                <TouchableOpacity
-                  style={S.glassIconBtn}
-                  onPress={() => navigation.navigate('Notifications')}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="notifications-outline" size={20} color={Colors.white} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[S.glassIconBtn, { marginLeft: 8 }]}
-                  onPress={() => navigation.navigate('Profile')}
-                  activeOpacity={0.7}
-                >
-                  <Icon name="person-outline" size={20} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
+          {/* Top bar — kept OUTSIDE the fading Animated.View so it is always tappable */}
+          <View style={S.heroTopBarAbsolute}>
+            <View>
+              <Text style={S.heroEyebrow}>{timeGreeting()}</Text>
+              <Text style={S.heroName}>
+                {user?.name ? user.name.split(' ')[0] : 'Traveller'} 👋
+              </Text>
             </View>
+            <View style={S.heroActions}>
+              <TouchableOpacity
+                style={S.glassIconBtn}
+                onPress={() => navigateSafe('Notifications')}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name="notifications-outline" size={20} color={Colors.white} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.glassIconBtn, { marginLeft: 8 }]}
+                onPress={() => navigateSafe('Profile')}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name="person-outline" size={20} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Animated.View style={[S.heroContent, { transform: [{ scale: heroScale }], opacity: heroOpacity }]}>
+            {/* Spacer so tagline sits below the top bar */}
+            <View style={{ height: 56 }} />
 
             {/* Tagline */}
             <Text style={S.heroTagline}>Find your perfect stay in Bangladesh</Text>
@@ -385,14 +399,18 @@ export default function HomeScreen({ navigation }: any) {
         {/* ════════════════ QUICK ACTIONS ════════════════ */}
         <View style={S.quickSection}>
           {[
-            { icon: 'calendar-outline',            label: 'Bookings',  color: '#2563EB', bg: '#EFF6FF', nav: 'Bookings' },
-            { icon: 'chatbubble-ellipses-outline',  label: 'Messages',  color: '#059669', bg: '#ECFDF5', nav: 'Messages' },
-            { icon: 'heart-outline',                label: 'Saved',     color: Colors.brand, bg: '#FFF1F2', nav: 'Favorites' },
+            { icon: 'calendar-outline',            label: 'Bookings',  color: '#2563EB', bg: '#EFF6FF', nav: 'Bookings',      protected: true },
+            { icon: 'chatbubble-ellipses-outline',  label: 'Messages',  color: '#059669', bg: '#ECFDF5', nav: 'Messages',      protected: true },
+            { icon: 'heart-outline',                label: 'Saved',     color: Colors.brand, bg: '#FFF1F2', nav: 'Favorites', protected: true },
             ...(user?.role === 'host'
-              ? [{ icon: 'business-outline', label: 'Host', color: '#D97706', bg: '#FFFBEB', nav: 'Dashboard' }]
-              : [{ icon: 'search-outline',   label: 'Explore', color: '#7C3AED', bg: '#F5F3FF', nav: 'LocationSearch' }]),
+              ? [{ icon: 'business-outline', label: 'Host',    color: '#D97706', bg: '#FFFBEB', nav: 'Dashboard',      protected: true }]
+              : [{ icon: 'search-outline',   label: 'Explore', color: '#7C3AED', bg: '#F5F3FF', nav: 'LocationSearch', protected: false }]),
           ].map((a, i) => (
-            <AnimatedPressable key={i} onPress={() => navigation.navigate(a.nav)} style={S.quickCard}>
+            <AnimatedPressable
+              key={i}
+              onPress={() => a.protected ? navigateSafe(a.nav) : navigation.navigate(a.nav)}
+              style={S.quickCard}
+            >
               <View style={[S.quickIconWrap, { backgroundColor: a.bg }]}>
                 <Icon name={a.icon} size={21} color={a.color} />
               </View>
@@ -490,8 +508,8 @@ export default function HomeScreen({ navigation }: any) {
                 <Icon name="flash" size={11} color={Colors.brand} />
                 <Text style={S.promoChipText}>Limited Offer</Text>
               </View>
-              <Text style={S.promoTitle}>20% off your{'\n'}first booking</Text>
-              <Text style={S.promoSub}>Use code: GOWAAY20</Text>
+              <Text style={S.promoTitle}>100TK off your{'\n'}first booking</Text>
+              <Text style={S.promoSub}>Use code: GOWAAY100</Text>
               <View style={S.promoCTA}>
                 <Text style={S.promoCTAText}>Claim now</Text>
                 <Icon name="arrow-forward" size={13} color={Colors.white} />
@@ -591,6 +609,17 @@ const S = StyleSheet.create({
     paddingTop: STATUS_H + 14,
     paddingHorizontal: 22,
     paddingBottom: 24,
+  },
+  // Top bar sits outside the fading Animated.View so it is always tappable
+  heroTopBarAbsolute: {
+    position: 'absolute',
+    top: STATUS_H + 14,
+    left: 22,
+    right: 22,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    zIndex: 10,
   },
   heroTopBar: {
     flexDirection: 'row',

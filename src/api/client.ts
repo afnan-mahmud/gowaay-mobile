@@ -461,6 +461,12 @@ export const api = {
     initSsl: (data: { bookingId: string }) => apiClient.post<{ gatewayUrl: string; sessionKey: string }>('/payments/ssl/init', data),
   },
 
+  // Coupons
+  coupons: {
+    validate: (data: { code: string; bookingAmountTk: number }) =>
+      apiClient.post<{ code: string; discountType: string; discountValue: number; discountAmountTk: number; finalAmountTk: number; message: string }>('/coupons/validate', data),
+  },
+
   // Uploads
   uploads: {
     image: (uri: string) => apiClient.uploadImage('/uploads/image', uri),
@@ -552,6 +558,56 @@ export const api = {
     markAllAsRead: () => apiClient.put('/notifications/read-all'),
     delete: (id: string) => apiClient.delete(`/notifications/${id}`),
     deleteAll: () => apiClient.delete('/notifications'),
+  },
+
+  // Admin
+  admin: {
+    stats: <T = any>(params?: { from?: string; to?: string }) =>
+      apiClient.get<T>('/admin/stats', params),
+    hosts: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
+      apiClient.get<T>('/admin/hosts', params),
+    approveHost: (id: string, data?: { message?: string }) =>
+      apiClient.post(`/admin/hosts/${id}/approve`, data || {}),
+    rejectHost: (id: string, data?: { message?: string }) =>
+      apiClient.post(`/admin/hosts/${id}/reject`, data || {}),
+    rooms: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
+      apiClient.get<T>('/admin/rooms', params),
+    approveRoom: (id: string, data?: { message?: string }) =>
+      apiClient.post(`/admin/rooms/${id}/approve`, data || {}),
+    rejectRoom: (id: string, data?: { message?: string }) =>
+      apiClient.post(`/admin/rooms/${id}/reject`, data || {}),
+    bookings: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
+      apiClient.get<T>('/admin/bookings', params),
+    users: <T = any>(params?: { page?: number; limit?: number; role?: string; q?: string }) =>
+      apiClient.get<T>('/admin/users', params),
+    suspendUser: (id: string) => apiClient.post(`/admin/users/${id}/suspend`),
+    unsuspendUser: (id: string) => apiClient.post(`/admin/users/${id}/unsuspend`),
+    reviews: <T = any>(params?: { page?: number; limit?: number }) =>
+      apiClient.get<T>('/admin/reviews', params),
+    deleteReview: (id: string) => apiClient.delete(`/admin/reviews/${id}`),
+    restoreReview: (id: string) => apiClient.post(`/admin/reviews/${id}/restore`),
+    whatsappChats: <T = any>(params?: { page?: number; limit?: number }) =>
+      apiClient.get<T>('/admin/whatsapp-chats', params),
+    whatsappChatDetail: <T = any>(phone: string, params?: { page?: number; limit?: number }) =>
+      apiClient.get<T>(`/admin/whatsapp-chats/${phone}`, params),
+    whatsappChatStatus: <T = any>(phone: string) =>
+      apiClient.get<T>(`/admin/whatsapp-chats/${phone}/status`),
+    whatsappReply: (phone: string, message: string) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/reply`, { message }),
+    whatsappToggleBot: (phone: string, enabled: boolean) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/toggle-bot`, { enabled }),
+    whatsappSendImage: (phone: string, imageUrl: string, caption?: string) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/send-image`, { imageUrl, caption }),
+    whatsappSendVideo: (phone: string, videoUrl: string, caption?: string) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/send-video`, { videoUrl, caption }),
+    whatsappSendCatalog: (phone: string, product: any) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/send-catalog`, { product }),
+    whatsappCatalog: <T = any>(params?: { limit?: number; after?: string }) =>
+      apiClient.get<T>('/admin/whatsapp-catalog', params),
+    quickReplies: <T = any>() => apiClient.get<T>('/admin/quick-replies'),
+    createQuickReply: (data: { title: string; message: string }) =>
+      apiClient.post('/admin/quick-replies', data),
+    deleteQuickReply: (id: string) => apiClient.delete(`/admin/quick-replies/${id}`),
   },
 
   // Locations

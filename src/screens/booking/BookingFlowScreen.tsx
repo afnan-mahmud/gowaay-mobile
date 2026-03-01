@@ -36,6 +36,14 @@ export default function BookingFlowScreen({ route, navigation }: any) {
   const [guests, setGuests] = useState(initialGuests || 1);
   const [loading, setLoading] = useState(false);
   const [messageToHost, setMessageToHost] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{
+    code: string;
+    discountAmountTk: number;
+    message: string;
+  } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
 
   // Validate room exists
   if (!room) {
@@ -86,7 +94,50 @@ export default function BookingFlowScreen({ route, navigation }: any) {
 
   const calculateTotal = () => {
     const nights = calculateNights();
-    return nights * room.totalPriceTk;
+    const base = nights * room.totalPriceTk;
+    if (couponApplied) {
+      return Math.max(base - couponApplied.discountAmountTk, 100);
+    }
+    return base;
+  };
+
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) return;
+
+    const bookingAmount = calculateNights() * room.totalPriceTk;
+    if (bookingAmount <= 0) {
+      setCouponError('Select dates first');
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const response = await api.coupons.validate({ code, bookingAmountTk: bookingAmount });
+      if (response.success && response.data) {
+        setCouponApplied({
+          code: (response.data as any).code,
+          discountAmountTk: (response.data as any).discountAmountTk,
+          message: (response.data as any).message,
+        });
+        setCouponError('');
+      } else {
+        setCouponError(response.message || response.error || 'Invalid coupon');
+        setCouponApplied(null);
+      }
+    } catch (err: any) {
+      setCouponError(err.message || 'Failed to validate coupon');
+      setCouponApplied(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponApplied(null);
+    setCouponCode('');
+    setCouponError('');
   };
 
   const handleCreateBooking = async () => {
@@ -118,6 +169,10 @@ export default function BookingFlowScreen({ route, navigation }: any) {
         guests,
         mode: room.instantBooking ? 'instant' : 'request',
       };
+
+      if (couponApplied) {
+        bookingData.couponCode = couponApplied.code;
+      }
 
       // Include optional message to host (request mode only)
       if (!room.instantBooking && messageToHost.trim()) {
@@ -310,6 +365,52 @@ export default function BookingFlowScreen({ route, navigation }: any) {
             <Text style={styles.editHint}>Tap to edit guests</Text>
           </View>
 
+          {/* Voucher Code */}
+          {checkIn && checkOut && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Voucher Code</Text>
+              {couponApplied ? (
+                <Card style={styles.couponAppliedCard}>
+                  <View style={styles.couponAppliedRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.couponAppliedCode}>{couponApplied.code}</Text>
+                      <Text style={styles.couponAppliedMsg}>{couponApplied.message}</Text>
+                    </View>
+                    <TouchableOpacity onPress={handleRemoveCoupon} style={styles.couponRemoveBtn}>
+                      <Text style={styles.couponRemoveText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Card>
+              ) : (
+                <Card style={styles.couponInputCard}>
+                  <View style={styles.couponInputRow}>
+                    <TextInput
+                      style={styles.couponInput}
+                      value={couponCode}
+                      onChangeText={(t) => { setCouponCode(t.toUpperCase()); setCouponError(''); }}
+                      placeholder="Enter voucher code"
+                      placeholderTextColor={Colors.textTertiary}
+                      autoCapitalize="characters"
+                      maxLength={20}
+                    />
+                    <TouchableOpacity
+                      style={[styles.couponApplyBtn, (!couponCode.trim() || couponLoading) && styles.couponApplyBtnDisabled]}
+                      onPress={handleApplyCoupon}
+                      disabled={!couponCode.trim() || couponLoading}
+                    >
+                      <Text style={styles.couponApplyText}>
+                        {couponLoading ? '...' : 'Apply'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {couponError ? (
+                    <Text style={styles.couponErrorText}>{couponError}</Text>
+                  ) : null}
+                </Card>
+              )}
+            </View>
+          )}
+
           {/* Price Breakdown */}
           {checkIn && checkOut && (
             <View style={styles.section}>
@@ -323,6 +424,16 @@ export default function BookingFlowScreen({ route, navigation }: any) {
                     ৳{(room.totalPriceTk * calculateNights()).toLocaleString()}
                   </Text>
                 </View>
+                {couponApplied && (
+                  <View style={styles.priceRow}>
+                    <Text style={[styles.priceLabel, { color: '#16a34a' }]}>
+                      Discount ({couponApplied.code})
+                    </Text>
+                    <Text style={[styles.priceValue, { color: '#16a34a' }]}>
+                      -৳{couponApplied.discountAmountTk.toLocaleString()}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.priceDivider} />
                 <View style={styles.priceRow}>
                   <Text style={styles.priceTotalLabel}>Total</Text>
@@ -435,6 +546,19 @@ const styles = StyleSheet.create({
   infoCard: { flexDirection: 'row', backgroundColor: '#EFF6FF', borderColor: '#BFDBFE', borderWidth: 1, borderRadius: 14, padding: 14, gap: 10 },
   infoIcon: {},
   infoText: { flex: 1, fontSize: 13, color: '#1E40AF', lineHeight: 19 },
+  couponInputCard: { padding: 0, overflow: 'hidden' },
+  couponInputRow: { flexDirection: 'row', alignItems: 'center' },
+  couponInput: { flex: 1, fontSize: 14, color: Colors.textPrimary, paddingHorizontal: 14, paddingVertical: 12, letterSpacing: 1 },
+  couponApplyBtn: { backgroundColor: Colors.brand, paddingHorizontal: 20, paddingVertical: 12, borderTopRightRadius: 16, borderBottomRightRadius: 16 },
+  couponApplyBtnDisabled: { opacity: 0.5 },
+  couponApplyText: { fontSize: 14, fontWeight: Theme.fontWeight.semibold, color: Colors.white },
+  couponErrorText: { fontSize: 12, color: Colors.error, paddingHorizontal: 14, paddingBottom: 10, paddingTop: 4 },
+  couponAppliedCard: { backgroundColor: '#F0FDF4', borderColor: '#86EFAC', borderWidth: 1, borderRadius: 16, padding: 14 },
+  couponAppliedRow: { flexDirection: 'row', alignItems: 'center' },
+  couponAppliedCode: { fontSize: 15, fontWeight: Theme.fontWeight.bold, color: '#16A34A', letterSpacing: 1 },
+  couponAppliedMsg: { fontSize: 12, color: '#15803D', marginTop: 2 },
+  couponRemoveBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FEE2E2', borderRadius: 8 },
+  couponRemoveText: { fontSize: 12, fontWeight: Theme.fontWeight.semibold, color: '#DC2626' },
   footer: { paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.gray100, backgroundColor: Colors.white },
   errorText: { fontSize: 14, color: Colors.error, textAlign: 'center', marginTop: 24 },
 });

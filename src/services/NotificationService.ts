@@ -204,12 +204,22 @@ class NotificationService {
     if (notification) {
       // Determine toast type based on notification data
       let toastType: 'info' | 'success' | 'warning' | 'error' = 'info';
-      if (data?.type === 'payment_success' || data?.type === 'booking_approved') {
+      if (
+        data?.type === 'payment_success' ||
+        data?.type === 'booking_approved' ||
+        data?.type === 'admin_booking_confirmed'
+      ) {
         toastType = 'success';
       } else if (data?.type === 'booking_rejected' || data?.type === 'payment_failed') {
         toastType = 'error';
       } else if (data?.type === 'booking_cancelled') {
         toastType = 'warning';
+      } else if (
+        data?.type === 'admin_host_application' ||
+        data?.type === 'admin_room_listing' ||
+        data?.type === 'admin_booking_request'
+      ) {
+        toastType = 'info';
       }
 
       Toast.show({
@@ -257,6 +267,21 @@ class NotificationService {
       case 'message':
         if (data.threadId) {
           (navigationRef as any).navigate('Chat', { threadId: data.threadId });
+        }
+        break;
+      // Admin notification types — navigate to relevant admin management screen
+      case 'admin_host_application':
+        (navigationRef as any).navigate('AdminHosts');
+        break;
+      case 'admin_room_listing':
+        (navigationRef as any).navigate('AdminRooms');
+        break;
+      case 'admin_booking_request':
+      case 'admin_booking_confirmed':
+        if (data.bookingId) {
+          (navigationRef as any).navigate('BookingDetail', { bookingId: data.bookingId });
+        } else {
+          (navigationRef as any).navigate('AdminBookings');
         }
         break;
       default:

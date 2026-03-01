@@ -40,4 +40,30 @@ if [ -f "$IMAGE_PICKER_GRADLE" ]; then
   fi
 fi
 
+# Patch react-native-screens: fix Kotlin removeLast()/removeFirst() crash on Android < 15
+# These Kotlin stdlib extension functions conflict with java.util.List methods added in Android 15,
+# causing NoSuchMethodError on older devices.
+SCREEN_STACK_KT="node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt"
+if [ -f "$SCREEN_STACK_KT" ]; then
+  PATCHED=false
+  if grep -q '\.removeLast()' "$SCREEN_STACK_KT"; then
+    sed -i '' 's/drawingOpPool\.removeLast()/drawingOpPool.removeAt(drawingOpPool.size - 1)/' "$SCREEN_STACK_KT"
+    PATCHED=true
+    echo "Patched react-native-screens: removeLast() → removeAt(size - 1)"
+  fi
+  if grep -q '\.removeFirst()' "$SCREEN_STACK_KT"; then
+    sed -i '' 's/drawingOpPool\.removeFirst()/drawingOpPool.removeAt(0)/' "$SCREEN_STACK_KT"
+    PATCHED=true
+    echo "Patched react-native-screens: removeFirst() → removeAt(0)"
+  fi
+  if grep -q 'removeAt(lastIndex)' "$SCREEN_STACK_KT"; then
+    sed -i '' 's/removeAt(lastIndex)/removeAt(drawingOpPool.size - 1)/' "$SCREEN_STACK_KT"
+    PATCHED=true
+    echo "Patched react-native-screens: removeAt(lastIndex) → removeAt(size - 1)"
+  fi
+  if [ "$PATCHED" = false ]; then
+    echo "react-native-screens: already patched or no changes needed"
+  fi
+fi
+
 echo "Post-install patches complete"

@@ -1,5 +1,5 @@
 /**
- * Host Dashboard Screen - Overview of host stats and quick actions
+ * Host Dashboard Screen — Glassmorphism redesign
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,9 +10,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { api, ApiResponse } from '../../api/client';
-import Card from '../../components/Card';
 import Icon from '../../components/Icon';
 import Loading from '../../components/Loading';
 import ErrorState from '../../components/ErrorState';
@@ -20,6 +22,11 @@ import { Toast } from '../../components/Toast';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { getErrorMessage } from '../../utils/errorMessages';
+
+const { width: SW } = Dimensions.get('window');
+const STATUS_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44;
+const GLASS_LIGHT  = 'rgba(255,255,255,0.14)';
+const GLASS_BORDER = 'rgba(255,255,255,0.28)';
 
 interface HostStats {
   totalRooms: number;
@@ -37,19 +44,14 @@ export default function HostDashboardScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  useEffect(() => { loadStats(); }, []);
 
   const loadStats = async () => {
     try {
       setError(null);
       const response: ApiResponse<HostStats> = await api.hosts.stats<HostStats>();
-      if (response.success && response.data) {
-        setStats(response.data);
-      }
+      if (response.success && response.data) setStats(response.data);
     } catch (err: any) {
-      console.error('Failed to load stats:', err);
       const msg = getErrorMessage(err);
       setError(msg);
       Toast.show({ type: 'error', title: 'Failed to Load Dashboard', message: msg });
@@ -59,341 +61,204 @@ export default function HostDashboardScreen({ navigation }: any) {
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadStats();
-  };
+  const onRefresh = () => { setRefreshing(true); loadStats(); };
 
-  if (loading) {
-    return <Loading message="Loading dashboard..." />;
-  }
-
-  if (error && !stats) {
-    return <ErrorState title="Failed to Load Dashboard" message={error} onRetry={loadStats} />;
-  }
+  if (loading) return <Loading message="Loading dashboard..." />;
+  if (error && !stats) return <ErrorState title="Failed to Load Dashboard" message={error} onRetry={loadStats} />;
 
   const quickActions = [
-    {
-      iconName: 'home-outline',
-      title: 'My Listings',
-      subtitle: `${stats?.activeRooms || 0} active`,
-      color: Colors.brand,
-      onPress: () => navigation.navigate('HostListings'),
-    },
-    {
-      iconName: 'add-circle-outline',
-      title: 'Add Listing',
-      subtitle: 'Create new property',
-      color: Colors.success,
-      onPress: () => navigation.navigate('AddRoom'),
-    },
-    {
-      iconName: 'calendar-outline',
-      title: 'Reservations',
-      subtitle: `${stats?.upcomingBookings || 0} upcoming`,
-      color: Colors.info,
-      onPress: () => navigation.navigate('HostReservations'),
-    },
-    {
-      iconName: 'calendar-number-outline',
-      title: 'Calendar',
-      subtitle: 'Manage availability',
-      color: Colors.warning,
-      onPress: () => navigation.navigate('HostCalendar'),
-    },
-    {
-      iconName: 'cash-outline',
-      title: 'Balance',
-      subtitle: `৳${stats?.totalEarnings?.toLocaleString() || 0}`,
-      color: Colors.success,
-      onPress: () => navigation.navigate('HostBalance'),
-    },
-    {
-      iconName: 'bar-chart-outline',
-      title: 'Analytics',
-      subtitle: 'View reports',
-      color: Colors.info,
-      onPress: () => navigation.navigate('HostAnalytics'),
-    },
+    { iconName: 'home-outline', title: 'My Listings', subtitle: `${stats?.activeRooms || 0} active`, color: Colors.brand, bg: Colors.brand + '15', onPress: () => navigation.navigate('HostListings') },
+    { iconName: 'add-circle-outline', title: 'Add Listing', subtitle: 'New property', color: Colors.success, bg: Colors.success + '15', onPress: () => navigation.navigate('AddRoom') },
+    { iconName: 'calendar-outline', title: 'Reservations', subtitle: `${stats?.upcomingBookings || 0} upcoming`, color: Colors.info, bg: Colors.info + '15', onPress: () => navigation.navigate('HostReservations') },
+    { iconName: 'calendar-number-outline', title: 'Calendar', subtitle: 'Availability', color: Colors.warning, bg: Colors.warning + '15', onPress: () => navigation.navigate('HostCalendar') },
+    { iconName: 'cash-outline', title: 'Balance', subtitle: `৳${stats?.totalEarnings?.toLocaleString() || 0}`, color: '#10B981', bg: '#10B98115', onPress: () => navigation.navigate('HostBalance') },
+    { iconName: 'bar-chart-outline', title: 'Analytics', subtitle: 'View reports', color: Colors.info, bg: Colors.info + '15', onPress: () => navigation.navigate('HostAnalytics') },
+  ];
+
+  const statCards = [
+    { icon: 'home-outline', value: stats?.totalRooms || 0, label: 'Total Listings', color: Colors.brand },
+    { icon: 'checkmark-circle-outline', value: stats?.activeRooms || 0, label: 'Active', color: Colors.success },
+    { icon: 'calendar-outline', value: stats?.totalBookings || 0, label: 'Bookings', color: Colors.info },
+    { icon: 'time-outline', value: stats?.upcomingBookings || 0, label: 'Upcoming', color: Colors.warning },
   ];
 
   return (
     <ScrollView
-      style={styles.container}
+      style={S.root}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
     >
-      <View style={styles.content}>
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Host Dashboard</Text>
-          <Text style={styles.welcomeSubtitle}>Manage your properties</Text>
-        </View>
+      {/* ── Hero ── */}
+      <View style={S.heroWrapper}>
+        <View style={S.heroBg} />
+        <View style={S.heroCircle1} />
+        <View style={S.heroCircle2} />
+        <View style={S.heroContent}>
+          <Text style={S.heroEyebrow}>Welcome back</Text>
+          <Text style={S.heroTitle}>Host Dashboard</Text>
+          <Text style={S.heroSub}>Manage your properties</Text>
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-            <Card style={[styles.statCard, { backgroundColor: (Colors.brand + '10') as any }] as any}>
-              <Icon name="home-outline" size={28} color={Colors.brand} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats?.totalRooms || 0}</Text>
-              <Text style={styles.statLabel}>Total Listings</Text>
-            </Card>
-
-            <Card style={[styles.statCard, { backgroundColor: (Colors.success + '10') as any }] as any}>
-              <Icon name="checkmark-circle-outline" size={28} color={Colors.success} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats?.activeRooms || 0}</Text>
-              <Text style={styles.statLabel}>Active</Text>
-            </Card>
-          </View>
-
-          <View style={styles.statsRow}>
-            <Card style={[styles.statCard, { backgroundColor: (Colors.info + '10') as any }] as any}>
-              <Icon name="calendar-outline" size={28} color={Colors.info} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats?.totalBookings || 0}</Text>
-              <Text style={styles.statLabel}>Total Bookings</Text>
-            </Card>
-
-            <Card style={[styles.statCard, { backgroundColor: (Colors.warning + '10') as any }] as any}>
-              <Icon name="time-outline" size={28} color={Colors.warning} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats?.upcomingBookings || 0}</Text>
-              <Text style={styles.statLabel}>Upcoming</Text>
-            </Card>
-          </View>
-        </View>
-
-        {/* Earnings Card */}
-        <Card style={styles.earningsCard}>
-          <View style={styles.earningsHeader}>
-            <Text style={styles.earningsTitle}>Earnings Overview</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('HostBalance')}>
-              <Text style={styles.earningsLink}>View Details →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.earningsContent}>
-            <View style={styles.earningsItem}>
-              <Text style={styles.earningsLabel}>Total Earnings</Text>
-              <Text style={styles.earningsValue}>
-                ৳{stats?.totalEarnings?.toLocaleString() || 0}
-              </Text>
+          {/* Earnings pill on hero */}
+          <View style={S.earningsPill}>
+            <View style={S.earningsHalf}>
+              <Text style={S.earningsLabel}>Total Earnings</Text>
+              <Text style={S.earningsValue}>৳{stats?.totalEarnings?.toLocaleString() || 0}</Text>
             </View>
-            <View style={styles.earningsDivider} />
-            <View style={styles.earningsItem}>
-              <Text style={styles.earningsLabel}>Pending Payout</Text>
-              <Text style={[styles.earningsValue, { color: Colors.warning }]}>
+            <View style={S.earningsDivider} />
+            <View style={S.earningsHalf}>
+              <Text style={S.earningsLabel}>Pending Payout</Text>
+              <Text style={[S.earningsValue, { color: '#FCD34D' }]}>
                 ৳{stats?.pendingAmount?.toLocaleString() || 0}
               </Text>
             </View>
+            <TouchableOpacity style={S.earningsArrow} onPress={() => navigation.navigate('HostBalance')}>
+              <Icon name="arrow-forward" size={18} color={Colors.white} />
+            </TouchableOpacity>
           </View>
-        </Card>
+        </View>
+      </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.actionCard}
-                onPress={action.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
+      <View style={S.body}>
+        {/* ── Stat Cards ── */}
+        <View style={S.statsGrid}>
+          {statCards.map((s, i) => (
+            <View key={i} style={S.statCard}>
+              <View style={[S.statIconWrap, { backgroundColor: s.color + '18' }]}>
+                <Icon name={s.icon} size={22} color={s.color} />
+              </View>
+              <Text style={S.statValue}>{s.value}</Text>
+              <Text style={S.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Quick Actions ── */}
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Quick Actions</Text>
+          <View style={S.actionsGrid}>
+            {quickActions.map((action, i) => (
+              <TouchableOpacity key={i} style={S.actionCard} onPress={action.onPress} activeOpacity={0.72}>
+                <View style={[S.actionIconWrap, { backgroundColor: action.bg }]}>
                   <Icon name={action.iconName} size={24} color={action.color} />
                 </View>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                <Text style={S.actionTitle}>{action.title}</Text>
+                <Text style={S.actionSub}>{action.subtitle}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Tips Card */}
-        <Card style={styles.tipsCard}>
-          <Icon name="bulb-outline" size={28} color={Colors.warning} style={styles.tipsIcon} />
-          <Text style={styles.tipsTitle}>Host Tips</Text>
-          <Text style={styles.tipsText}>
+        {/* ── Tips ── */}
+        <View style={S.tipsCard}>
+          <View style={S.tipsHeader}>
+            <View style={S.tipsIconWrap}>
+              <Icon name="bulb-outline" size={20} color={Colors.warning} />
+            </View>
+            <Text style={S.tipsTitle}>Host Tips</Text>
+          </View>
+          <Text style={S.tipsText}>
             • Keep your calendar updated{'\n'}
             • Respond to guests quickly{'\n'}
             • Add quality photos{'\n'}
-            • Set competitive prices{'\n'}
-            • Maintain cleanliness
+            • Set competitive prices
           </Text>
-        </Card>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F4F8',
+const S = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F4F4F8' },
+
+  // Hero
+  heroWrapper: { paddingBottom: 0, overflow: 'visible' },
+  heroBg: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: Colors.brand,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  content: {
-    padding: 16,
+  heroCircle1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -40,
   },
-  welcomeSection: {
-    marginBottom: 16,
+  heroCircle2: {
+    position: 'absolute', width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(0,0,0,0.08)', top: 30, left: -40,
   },
-  welcomeTitle: {
-    fontSize: 17,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: -0.2,
+  heroContent: {
+    paddingTop: STATUS_H + 20,
+    paddingHorizontal: 22,
+    paddingBottom: 28,
   },
-  welcomeSubtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  statsContainer: {
-    marginBottom: 16,
-  },
-  statsRow: {
+  heroEyebrow: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: Theme.fontWeight.medium, marginBottom: 2 },
+  heroTitle: { fontSize: 28, fontWeight: Theme.fontWeight.bold, color: Colors.white, letterSpacing: -0.5, marginBottom: 2 },
+  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.65)', marginBottom: 20 },
+
+  earningsPill: {
     flexDirection: 'row',
-    gap: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
-  },
-  statCard: {
-    flex: 1,
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
+    backgroundColor: GLASS_LIGHT,
     borderWidth: 1,
-    borderColor: Colors.gray100,
-    ...Theme.shadows.sm,
-  },
-  statIcon: {
-    marginBottom: Theme.spacing.xs,
-  },
-  statValue: {
-    fontSize: 17,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: -0.2,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  earningsCard: {
-    marginBottom: 16,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    ...Theme.shadows.sm,
-  },
-  earningsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Theme.spacing.md,
-  },
-  earningsTitle: {
-    fontSize: 16,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    letterSpacing: -0.2,
-  },
-  earningsLink: {
-    fontSize: 13,
-    color: Colors.brand,
-    fontWeight: Theme.fontWeight.medium,
-  },
-  earningsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  earningsItem: {
-    flex: 1,
-  },
-  earningsLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginBottom: Theme.spacing.xs,
-  },
-  earningsValue: {
-    fontSize: 17,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.success,
-    letterSpacing: -0.2,
-  },
-  earningsDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: Colors.gray100,
-    marginHorizontal: Theme.spacing.md,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.textTertiary,
-    marginBottom: Theme.spacing.md,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -Theme.spacing.xs,
-  },
-  actionCard: {
-    width: '33.333%',
-    padding: 14,
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
+    borderColor: GLASS_BORDER,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Theme.spacing.sm,
-    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  actionTitle: {
-    fontSize: 13,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 2,
-    letterSpacing: -0.2,
+  earningsHalf: { flex: 1 },
+  earningsLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginBottom: 3 },
+  earningsValue: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.white, letterSpacing: -0.3 },
+  earningsDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: 14 },
+  earningsArrow: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: GLASS_LIGHT, borderWidth: 1, borderColor: GLASS_BORDER,
+    alignItems: 'center', justifyContent: 'center',
   },
-  actionSubtitle: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    textAlign: 'center',
+
+  // Body
+  body: { padding: 16, paddingTop: 20 },
+
+  // Stats
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  statCard: {
+    width: (SW - 52) / 2,
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.gray100,
+    ...Theme.shadows.sm,
   },
+  statIconWrap: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  statValue: { fontSize: 24, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, letterSpacing: -0.5, marginBottom: 2 },
+  statLabel: { fontSize: 12, color: Colors.textSecondary },
+
+  // Section
+  section: { marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, letterSpacing: -0.3, marginBottom: 14 },
+
+  // Actions
+  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  actionCard: { width: '33.33%', paddingHorizontal: 6, marginBottom: 12, alignItems: 'center' },
+  actionIconWrap: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  actionTitle: { fontSize: 13, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, textAlign: 'center', marginBottom: 2 },
+  actionSub: { fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
+
+  // Tips
   tipsCard: {
     backgroundColor: Colors.white,
-    borderRadius: 17,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: Colors.gray100,
-    ...Theme.shadows.sm,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
+    borderLeftColor: Colors.warning,
+    ...Theme.shadows.sm,
+    marginBottom: 30,
   },
-  tipsIcon: {
-    marginBottom: Theme.spacing.sm,
-  },
-  tipsTitle: {
-    fontSize: 15,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.sm,
-    letterSpacing: -0.2,
-  },
-  tipsText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
+  tipsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  tipsIconWrap: { width: 34, height: 34, borderRadius: 12, backgroundColor: Colors.warning + '15', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  tipsTitle: { fontSize: 16, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
+  tipsText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 22 },
 });

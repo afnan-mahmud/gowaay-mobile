@@ -1,5 +1,5 @@
 /**
- * Host Reviews Screen - View and respond to guest reviews
+ * Host Reviews Screen — Glassmorphism redesign
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -15,15 +15,20 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { api } from '../../api/client';
-import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
 import ErrorState from '../../components/ErrorState';
 import Loading from '../../components/Loading';
+import Icon from '../../components/Icon';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { getErrorMessage } from '../../utils/errorMessages';
+
+const STATUS_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44;
+const GLASS_LIGHT  = 'rgba(255,255,255,0.14)';
+const GLASS_BORDER = 'rgba(255,255,255,0.28)';
 
 interface Review {
   _id: string;
@@ -45,14 +50,10 @@ export default function HostReviewsScreen({ navigation }: any) {
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadReviews();
-  }, []);
+  useEffect(() => { loadReviews(); }, []);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadReviews();
-    });
+    const unsubscribe = navigation.addListener('focus', () => { loadReviews(); });
     return unsubscribe;
   }, [navigation]);
 
@@ -65,7 +66,6 @@ export default function HostReviewsScreen({ navigation }: any) {
         setReviews(data.reviews || []);
       }
     } catch (err: any) {
-      console.error('Failed to load reviews:', err);
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -73,24 +73,15 @@ export default function HostReviewsScreen({ navigation }: any) {
     }
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadReviews();
-  };
+  const onRefresh = () => { setRefreshing(true); loadReviews(); };
 
   const handleSubmitResponse = async (reviewId: string) => {
     if (!responseText.trim()) return;
-
     try {
       setSubmitting(true);
       const response = await api.reviews.respondToReview(reviewId, { response: responseText.trim() });
-      if (response.success) {
-        setRespondingTo(null);
-        setResponseText('');
-        loadReviews();
-      } else {
-        Alert.alert('Error', (response as any).message || 'Failed to submit response');
-      }
+      if (response.success) { setRespondingTo(null); setResponseText(''); loadReviews(); }
+      else Alert.alert('Error', (response as any).message || 'Failed to submit response');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to submit response');
     } finally {
@@ -98,95 +89,97 @@ export default function HostReviewsScreen({ navigation }: any) {
     }
   };
 
-  const renderStars = (rating: number) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-  };
+  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : '—';
+  const responded = reviews.filter(r => r.hostResponse).length;
+
+  const renderStarRow = (rating: number) => (
+    <View style={S.starRow}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Text key={i} style={[S.star, i <= rating && S.starFilled]}>★</Text>
+      ))}
+    </View>
+  );
 
   const renderReview = ({ item }: { item: Review }) => (
-    <Card style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <View style={styles.reviewerRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {item.userId?.name?.charAt(0)?.toUpperCase() || '?'}
-            </Text>
-          </View>
-          <View style={styles.reviewerInfo}>
-            <Text style={styles.reviewerName}>{item.userId?.name || 'Guest'}</Text>
-            <Text style={styles.reviewDate}>
-              {new Date(item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-            </Text>
-          </View>
+    <View style={S.card}>
+      {/* Header */}
+      <View style={S.cardHeader}>
+        <View style={S.avatar}>
+          <Text style={S.avatarText}>{item.userId?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
         </View>
-        <Text style={styles.stars}>{renderStars(item.rating)}</Text>
+        <View style={S.reviewerInfo}>
+          <Text style={S.reviewerName}>{item.userId?.name || 'Guest'}</Text>
+          <Text style={S.reviewDate}>
+            {new Date(item.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          </Text>
+        </View>
+        {renderStarRow(item.rating)}
       </View>
 
-      <Text style={styles.roomBadge}>{item.roomId?.title || 'Unknown Room'}</Text>
-      <Text style={styles.comment}>{item.comment}</Text>
+      {/* Room badge */}
+      <View style={S.roomBadge}>
+        <Icon name="home-outline" size={12} color={Colors.brand} />
+        <Text style={S.roomBadgeText}>{item.roomId?.title || 'Unknown Room'}</Text>
+      </View>
 
-      {/* Existing host response */}
+      {/* Comment */}
+      <Text style={S.comment}>{item.comment}</Text>
+
+      {/* Host response */}
       {item.hostResponse ? (
-        <View style={styles.responseBox}>
-          <Text style={styles.responseLabel}>Your response</Text>
-          <Text style={styles.responseText}>{item.hostResponse}</Text>
+        <View style={S.responseBox}>
+          <View style={S.responseBoxHeader}>
+            <Icon name="chatbubble-outline" size={14} color={Colors.brand} />
+            <Text style={S.responseLabel}>Your Response</Text>
+          </View>
+          <Text style={S.responseText}>{item.hostResponse}</Text>
         </View>
       ) : (
         <>
           {respondingTo === item._id ? (
-            <View style={styles.responseForm}>
+            <View style={S.responseForm}>
               <TextInput
-                style={styles.responseInput}
+                style={S.responseInput}
                 placeholder="Write your response..."
+                placeholderTextColor={Colors.textTertiary}
                 value={responseText}
                 onChangeText={setResponseText}
                 multiline
                 maxLength={1000}
                 numberOfLines={3}
               />
-              <View style={styles.responseActions}>
-                <Text style={styles.charCount}>{responseText.length}/1000</Text>
-                <View style={styles.responseButtons}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => { setRespondingTo(null); setResponseText(''); }}
-                    disabled={submitting}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+              <View style={S.responseActions}>
+                <Text style={S.charCount}>{responseText.length}/1000</Text>
+                <View style={S.responseBtns}>
+                  <TouchableOpacity style={S.cancelBtn} onPress={() => { setRespondingTo(null); setResponseText(''); }} disabled={submitting}>
+                    <Text style={S.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.submitButton, (!responseText.trim() || submitting) && styles.submitButtonDisabled]}
+                    style={[S.submitBtn, (!responseText.trim() || submitting) && S.submitBtnDisabled]}
                     onPress={() => handleSubmitResponse(item._id)}
                     disabled={!responseText.trim() || submitting}
                   >
-                    {submitting ? (
-                      <ActivityIndicator size="small" color={Colors.white} />
-                    ) : (
-                      <Text style={styles.submitButtonText}>Submit</Text>
-                    )}
+                    {submitting
+                      ? <ActivityIndicator size="small" color={Colors.white} />
+                      : <Text style={S.submitBtnText}>Submit</Text>
+                    }
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           ) : (
-            <TouchableOpacity
-              style={styles.respondButton}
-              onPress={() => setRespondingTo(item._id)}
-            >
-              <Text style={styles.respondButtonText}>Respond</Text>
+            <TouchableOpacity style={S.respondBtn} onPress={() => setRespondingTo(item._id)}>
+              <Icon name="chatbubble-outline" size={14} color={Colors.brand} />
+              <Text style={S.respondBtnText}>Respond</Text>
             </TouchableOpacity>
           )}
         </>
       )}
-    </Card>
+    </View>
   );
 
-  if (loading) {
-    return <Loading message="Loading reviews..." />;
-  }
-
-  if (error && reviews.length === 0) {
-    return <ErrorState title="Failed to Load Reviews" message={error} onRetry={loadReviews} />;
-  }
+  if (loading) return <Loading message="Loading reviews..." />;
+  if (error && reviews.length === 0) return <ErrorState title="Failed to Load Reviews" message={error} onRetry={loadReviews} />;
 
   if (reviews.length === 0) {
     return (
@@ -199,187 +192,104 @@ export default function HostReviewsScreen({ navigation }: any) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={S.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList
         data={reviews}
         renderItem={renderReview}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        keyExtractor={item => item._id}
+        contentContainerStyle={S.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
+        ListHeaderComponent={
+          <>
+            {/* ── Hero strip ── */}
+            <View style={S.hero}>
+              <View style={S.heroCircle} />
+              <View style={S.heroContent}>
+                <Text style={S.heroTitle}>Reviews</Text>
+                <Text style={S.heroSub}>{reviews.length} total review{reviews.length !== 1 ? 's' : ''}</Text>
+
+                <View style={S.statsPills}>
+                  <View style={S.statPill}>
+                    <Text style={S.statPillValue}>{avgRating}</Text>
+                    <Text style={S.statPillLabel}>Avg Rating</Text>
+                  </View>
+                  <View style={S.statPillDivider} />
+                  <View style={S.statPill}>
+                    <Text style={[S.statPillValue, { color: '#86EFAC' }]}>{responded}</Text>
+                    <Text style={S.statPillLabel}>Responded</Text>
+                  </View>
+                  <View style={S.statPillDivider} />
+                  <View style={S.statPill}>
+                    <Text style={[S.statPillValue, { color: '#FCD34D' }]}>{reviews.length - responded}</Text>
+                    <Text style={S.statPillLabel}>Pending Reply</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={S.listHeader}>
+              <Text style={S.listHeaderTitle}>All Reviews</Text>
+            </View>
+          </>
         }
       />
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F4F8',
-  },
-  list: {
-    padding: 14,
-  },
-  reviewCard: {
-    marginBottom: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    padding: 14,
-    ...Theme.shadows.sm,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Theme.spacing.sm,
-  },
-  reviewerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 16,
-    backgroundColor: Colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Theme.spacing.sm,
-  },
-  avatarText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontWeight: Theme.fontWeight.bold,
-  },
-  reviewerInfo: {
-    flex: 1,
-  },
-  reviewerName: {
-    fontSize: 15,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.textPrimary,
-    letterSpacing: -0.2,
-  },
-  reviewDate: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-  },
-  stars: {
-    fontSize: 14,
-    color: '#F59E0B',
-  },
-  roomBadge: {
-    fontSize: 11,
-    color: Colors.brand,
-    backgroundColor: Colors.brandLight || '#f0f0ff',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: Theme.spacing.sm,
-    overflow: 'hidden',
-  },
-  comment: {
-    fontSize: 13,
-    color: Colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: Theme.spacing.sm,
-  },
-  responseBox: {
-    marginLeft: Theme.spacing.md,
-    paddingLeft: Theme.spacing.md,
-    borderLeftWidth: 2,
-    borderLeftColor: Colors.brand,
-    backgroundColor: '#F4F4F8',
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    padding: 14,
-  },
-  responseLabel: {
-    fontSize: 11,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.brand,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  responseText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  respondButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    borderRadius: 14,
-    alignSelf: 'flex-start',
-  },
-  respondButtonText: {
-    fontSize: 13,
-    fontWeight: Theme.fontWeight.medium,
-    color: Colors.brand,
-  },
-  responseForm: {
-    marginTop: Theme.spacing.sm,
-  },
-  responseInput: {
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 13,
-    color: Colors.textPrimary,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  responseActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Theme.spacing.sm,
-  },
-  charCount: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-  },
-  responseButtons: {
-    flexDirection: 'row',
-    gap: Theme.spacing.sm,
-  },
-  cancelButton: {
-    paddingVertical: Theme.spacing.xs,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    borderRadius: 14,
-  },
-  cancelButtonText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  submitButton: {
-    paddingVertical: Theme.spacing.xs,
-    paddingHorizontal: 14,
-    backgroundColor: Colors.brand,
-    borderRadius: 14,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    fontSize: 13,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.white,
-  },
+const S = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F4F4F8' },
+
+  // Hero
+  hero: { backgroundColor: Colors.brand, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden', paddingTop: STATUS_H + 16, paddingBottom: 24, marginBottom: 0 },
+  heroCircle: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -50 },
+  heroContent: { paddingHorizontal: 22 },
+  heroTitle: { fontSize: 24, fontWeight: Theme.fontWeight.bold, color: Colors.white, letterSpacing: -0.4 },
+  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2, marginBottom: 20 },
+  statsPills: { flexDirection: 'row', backgroundColor: GLASS_LIGHT, borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 12 },
+  statPill: { flex: 1, alignItems: 'center' },
+  statPillValue: { fontSize: 20, fontWeight: Theme.fontWeight.bold, color: Colors.white, letterSpacing: -0.3 },
+  statPillLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  statPillDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 8 },
+
+  listHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 4 },
+  listHeaderTitle: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, letterSpacing: -0.3 },
+
+  list: { paddingHorizontal: 16, paddingBottom: 30 },
+
+  // Card
+  card: { backgroundColor: Colors.white, borderRadius: 20, marginBottom: 14, borderWidth: 1, borderColor: Colors.gray100, ...Theme.shadows.sm, padding: 16 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  avatar: { width: 42, height: 42, borderRadius: 14, backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  avatarText: { color: Colors.white, fontSize: 16, fontWeight: Theme.fontWeight.bold },
+  reviewerInfo: { flex: 1 },
+  reviewerName: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, letterSpacing: -0.2 },
+  reviewDate: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
+  starRow: { flexDirection: 'row', gap: 1 },
+  star: { fontSize: 14, color: Colors.gray200 },
+  starFilled: { color: '#F59E0B' },
+
+  roomBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.brand + '10', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 12 },
+  roomBadgeText: { fontSize: 12, color: Colors.brand, fontWeight: Theme.fontWeight.medium },
+
+  comment: { fontSize: 14, color: Colors.textPrimary, lineHeight: 21, marginBottom: 12 },
+
+  responseBox: { backgroundColor: '#F4F4F8', borderRadius: 14, padding: 12, borderLeftWidth: 3, borderLeftColor: Colors.brand },
+  responseBoxHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  responseLabel: { fontSize: 11, fontWeight: Theme.fontWeight.bold, color: Colors.brand, textTransform: 'uppercase', letterSpacing: 0.8 },
+  responseText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 19 },
+
+  respondBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: Colors.brand + '40', borderRadius: 14, alignSelf: 'flex-start', backgroundColor: Colors.brand + '08' },
+  respondBtnText: { fontSize: 13, fontWeight: Theme.fontWeight.medium, color: Colors.brand },
+
+  responseForm: { marginTop: 4 },
+  responseInput: { borderWidth: 1, borderColor: Colors.gray200, borderRadius: 14, padding: 12, fontSize: 14, color: Colors.textPrimary, minHeight: 80, textAlignVertical: 'top', backgroundColor: Colors.gray50 },
+  responseActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  charCount: { fontSize: 11, color: Colors.textSecondary },
+  responseBtns: { flexDirection: 'row', gap: 8 },
+  cancelBtn: { paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: Colors.gray200, borderRadius: 14, backgroundColor: Colors.white },
+  cancelBtnText: { fontSize: 13, color: Colors.textSecondary },
+  submitBtn: { paddingVertical: 8, paddingHorizontal: 16, backgroundColor: Colors.brand, borderRadius: 14, minWidth: 80, alignItems: 'center' },
+  submitBtnDisabled: { opacity: 0.5 },
+  submitBtnText: { fontSize: 13, fontWeight: Theme.fontWeight.semibold, color: Colors.white },
 });

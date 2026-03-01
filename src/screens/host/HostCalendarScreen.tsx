@@ -1,5 +1,5 @@
 /**
- * Host Calendar Screen - Manage availability and unavailable dates
+ * Host Calendar Screen — Glassmorphism redesign
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,11 +10,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { api } from '../../api/client';
 import Button from '../../components/Button';
-import Card from '../../components/Card';
 import Icon from '../../components/Icon';
 import Loading from '../../components/Loading';
 import ErrorState from '../../components/ErrorState';
@@ -22,6 +24,11 @@ import { Toast } from '../../components/Toast';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { getErrorMessage } from '../../utils/errorMessages';
+
+const { width: SW } = Dimensions.get('window');
+const STATUS_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 44;
+const GLASS_LIGHT  = 'rgba(255,255,255,0.14)';
+const GLASS_BORDER = 'rgba(255,255,255,0.28)';
 
 interface Room {
   _id: string;
@@ -38,15 +45,8 @@ export default function HostCalendarScreen({ navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   const [markedDates, setMarkedDates] = useState<any>({});
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
-
-  useEffect(() => {
-    if (selectedRoom) {
-      updateMarkedDates();
-    }
-  }, [selectedRoom]);
+  useEffect(() => { loadRooms(); }, []);
+  useEffect(() => { if (selectedRoom) updateMarkedDates(); }, [selectedRoom]);
 
   const loadRooms = async () => {
     try {
@@ -55,12 +55,9 @@ export default function HostCalendarScreen({ navigation }: any) {
       if (response.success && response.data) {
         const roomsData = response.data as Room[];
         setRooms(roomsData.filter((r: any) => r.status === 'approved'));
-        if (roomsData.length > 0) {
-          setSelectedRoom(roomsData[0]);
-        }
+        if (roomsData.length > 0) setSelectedRoom(roomsData[0]);
       }
     } catch (err: any) {
-      console.error('Failed to load rooms:', err);
       const msg = getErrorMessage(err);
       setError(msg);
       Toast.show({ type: 'error', title: 'Failed to Load Calendar', message: msg });
@@ -71,67 +68,33 @@ export default function HostCalendarScreen({ navigation }: any) {
 
   const updateMarkedDates = () => {
     if (!selectedRoom) return;
-
     const marked: any = {};
-
-    // Mark unavailable dates
-    selectedRoom.unavailableDates?.forEach((dateStr) => {
-      marked[dateStr] = {
-        selected: true,
-        selectedColor: Colors.error,
-        marked: true,
-        dotColor: Colors.white,
-      };
+    selectedRoom.unavailableDates?.forEach(dateStr => {
+      marked[dateStr] = { selected: true, selectedColor: Colors.error, marked: true, dotColor: Colors.white };
     });
-
-    // Mark today
     const today = new Date().toISOString().split('T')[0];
-    if (!marked[today]) {
-      marked[today] = {
-        selected: false,
-        marked: true,
-        dotColor: Colors.brand,
-      };
-    }
-
+    if (!marked[today]) marked[today] = { selected: false, marked: true, dotColor: Colors.brand };
     setMarkedDates(marked);
   };
 
   const handleDayPress = (day: any) => {
     if (!selectedRoom) return;
-
     const dateStr = day.dateString;
     const unavailableDates = selectedRoom.unavailableDates || [];
     const isUnavailable = unavailableDates.includes(dateStr);
-
-    if (isUnavailable) {
-      // Remove from unavailable dates
-      const updatedDates = unavailableDates.filter((d) => d !== dateStr);
-      setSelectedRoom({ ...selectedRoom, unavailableDates: updatedDates });
-    } else {
-      // Add to unavailable dates
-      setSelectedRoom({
-        ...selectedRoom,
-        unavailableDates: [...unavailableDates, dateStr],
-      });
-    }
+    setSelectedRoom({
+      ...selectedRoom,
+      unavailableDates: isUnavailable ? unavailableDates.filter(d => d !== dateStr) : [...unavailableDates, dateStr],
+    });
   };
 
   const handleSave = async () => {
     if (!selectedRoom) return;
-
     setSaving(true);
     try {
-      const response = await api.hosts.updateRoomAvailability(
-        selectedRoom._id,
-        selectedRoom.unavailableDates || []
-      );
-
-      if (response.success) {
-        Alert.alert('Success', 'Calendar updated successfully');
-      } else {
-        Alert.alert('Error', response.message || 'Failed to update calendar');
-      }
+      const response = await api.hosts.updateRoomAvailability(selectedRoom._id, selectedRoom.unavailableDates || []);
+      if (response.success) Alert.alert('Success', 'Calendar updated successfully');
+      else Alert.alert('Error', response.message || 'Failed to update calendar');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update calendar');
     } finally {
@@ -140,92 +103,81 @@ export default function HostCalendarScreen({ navigation }: any) {
   };
 
   const handleReset = () => {
-    Alert.alert(
-      'Reset Calendar',
-      'This will clear all unavailable dates. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            if (selectedRoom) {
-              setSelectedRoom({ ...selectedRoom, unavailableDates: [] });
-            }
-          },
-        },
-      ]
-    );
+    Alert.alert('Reset Calendar', 'This will clear all unavailable dates. Continue?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: () => { if (selectedRoom) setSelectedRoom({ ...selectedRoom, unavailableDates: [] }); } },
+    ]);
   };
 
-  if (loading) {
-    return <Loading message="Loading calendar..." />;
-  }
-
-  if (error && rooms.length === 0) {
-    return <ErrorState title="Failed to Load Calendar" message={error} onRetry={loadRooms} />;
-  }
+  if (loading) return <Loading message="Loading calendar..." />;
+  if (error && rooms.length === 0) return <ErrorState title="Failed to Load Calendar" message={error} onRetry={loadRooms} />;
 
   if (rooms.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Icon name="home-outline" size={56} color={Colors.gray400} style={styles.emptyIcon} />
-        <Text style={styles.emptyTitle}>No Active Listings</Text>
-        <Text style={styles.emptyText}>
-          You need at least one approved listing to manage calendar
-        </Text>
-        <Button
-          title="Add Listing"
-          onPress={() => navigation.navigate('AddRoom')}
-          style={styles.addButton}
-        />
+      <View style={S.emptyScreen}>
+        <View style={S.emptyIconWrap}><Icon name="home-outline" size={32} color={Colors.brand} /></View>
+        <Text style={S.emptyTitle}>No Active Listings</Text>
+        <Text style={S.emptyText}>You need at least one approved listing to manage calendar</Text>
+        <Button title="Add Listing" onPress={() => navigation.navigate('AddRoom')} style={S.addBtn} />
       </View>
     );
   }
 
+  const unavailableCount = selectedRoom?.unavailableDates?.length || 0;
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
-        {/* Room Selector */}
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Property</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {rooms.map((room) => (
-              <TouchableOpacity
-                key={room._id}
-                style={[
-                  styles.roomTab,
-                  selectedRoom?._id === room._id && styles.roomTabActive,
-                ]}
-                onPress={() => setSelectedRoom(room)}
-              >
-                <Text
-                  style={[
-                    styles.roomTabText,
-                    selectedRoom?._id === room._id && styles.roomTabTextActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {room.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
+    <ScrollView style={S.root} showsVerticalScrollIndicator={false}>
+      {/* ── Hero strip ── */}
+      <View style={S.hero}>
+        <View style={S.heroCircle} />
+        <View style={S.heroContent}>
+          <Text style={S.heroTitle}>Availability</Text>
+          <Text style={S.heroSub}>Manage unavailable dates</Text>
+
+          {/* Stat pills on hero */}
+          <View style={S.heroPills}>
+            <View style={S.heroPill}>
+              <Text style={S.heroPillValue}>{unavailableCount}</Text>
+              <Text style={S.heroPillLabel}>Blocked</Text>
+            </View>
+            <View style={S.heroPillDivider} />
+            <View style={S.heroPill}>
+              <Text style={[S.heroPillValue, { color: '#86EFAC' }]}>{365 - unavailableCount}</Text>
+              <Text style={S.heroPillLabel}>Available</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={S.body}>
+        {/* ── Property selector ── */}
+        <View style={S.section}>
+          <Text style={S.sectionTitle}>Select Property</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.roomTabsContent}>
+            {rooms.map(room => {
+              const active = selectedRoom?._id === room._id;
+              return (
+                <TouchableOpacity key={room._id} style={[S.roomTab, active && S.roomTabActive]} onPress={() => setSelectedRoom(room)}>
+                  <Text style={[S.roomTabText, active && S.roomTabTextActive]} numberOfLines={1}>{room.title}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
-        </Card>
+        </View>
 
-        {/* Instructions */}
-        <Card style={styles.instructionsCard}>
-          <Text style={styles.instructionsTitle}>How to use:</Text>
-          <Text style={styles.instructionsText}>
-            • Tap on a date to mark it as unavailable{'\n'}
-            • Tap again to make it available{'\n'}
-            • Red dates are unavailable for booking{'\n'}
-            • Don't forget to save your changes
+        {/* ── Instructions ── */}
+        <View style={S.instructionsCard}>
+          <View style={S.instructionsHeader}>
+            <View style={S.instructionsIconWrap}><Icon name="information-circle-outline" size={18} color={Colors.info} /></View>
+            <Text style={S.instructionsTitle}>How to use</Text>
+          </View>
+          <Text style={S.instructionsText}>
+            Tap a date to mark it unavailable · Tap again to make it available · Red dates are blocked for booking
           </Text>
-        </Card>
+        </View>
 
-        {/* Calendar */}
-        <Card style={styles.calendarCard}>
+        {/* ── Calendar ── */}
+        <View style={S.calendarCard}>
           <Calendar
             current={new Date().toISOString().split('T')[0]}
             minDate={new Date().toISOString().split('T')[0]}
@@ -252,233 +204,99 @@ export default function HostCalendarScreen({ navigation }: any) {
               textDayHeaderFontSize: Theme.fontSize.xs,
             }}
           />
-        </Card>
-
-        {/* Stats */}
-        <Card style={styles.statsCard}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {selectedRoom?.unavailableDates?.length || 0}
-              </Text>
-              <Text style={styles.statLabel}>Unavailable Days</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: Colors.success }]}>
-                {365 - (selectedRoom?.unavailableDates?.length || 0)}
-              </Text>
-              <Text style={styles.statLabel}>Available Days</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <Button
-            title="Save Changes"
-            onPress={handleSave}
-            loading={saving}
-            style={styles.saveButton}
-          />
-          <Button
-            title="Reset All"
-            variant="outline"
-            onPress={handleReset}
-            style={styles.resetButton}
-          />
         </View>
 
-        {/* Tips */}
-        <Card style={styles.tipsCard}>
-          <Icon name="bulb-outline" size={24} color={Colors.warning} style={styles.tipsIcon} />
-          <Text style={styles.tipsTitle}>Calendar Tips</Text>
-          <Text style={styles.tipsText}>
+        {/* ── Legend ── */}
+        <View style={S.legendRow}>
+          <View style={S.legendItem}>
+            <View style={[S.legendDot, { backgroundColor: Colors.error }]} />
+            <Text style={S.legendText}>Unavailable</Text>
+          </View>
+          <View style={S.legendItem}>
+            <View style={[S.legendDot, { backgroundColor: Colors.brand }]} />
+            <Text style={S.legendText}>Today</Text>
+          </View>
+          <View style={S.legendItem}>
+            <View style={[S.legendDot, { backgroundColor: Colors.gray200 }]} />
+            <Text style={S.legendText}>Available</Text>
+          </View>
+        </View>
+
+        {/* ── Actions ── */}
+        <View style={S.actionsRow}>
+          <Button title="Save Changes" onPress={handleSave} loading={saving} style={S.saveBtn} />
+          <Button title="Reset All" variant="outline" onPress={handleReset} style={S.resetBtn} />
+        </View>
+
+        {/* ── Tips ── */}
+        <View style={S.tipsCard}>
+          <View style={S.tipsHeader}>
+            <View style={S.tipsIconWrap}><Icon name="bulb-outline" size={18} color={Colors.warning} /></View>
+            <Text style={S.tipsTitle}>Calendar Tips</Text>
+          </View>
+          <Text style={S.tipsText}>
             • Update your calendar regularly{'\n'}
             • Block dates for personal use or maintenance{'\n'}
-            • Keep at least 2-3 days buffer between bookings{'\n'}
-            • Consider blocking holidays if you prefer
+            • Keep at least 2-3 days buffer between bookings
           </Text>
-        </Card>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F4F8',
-  },
-  content: {
-    padding: 14,
-  },
-  section: {
-    marginBottom: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    padding: 14,
-    ...Theme.shadows.sm,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.textTertiary,
-    marginBottom: Theme.spacing.md,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  roomTab: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginRight: Theme.spacing.sm,
-    borderRadius: 14,
-    backgroundColor: '#F4F4F8',
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-  },
-  roomTabActive: {
-    backgroundColor: Colors.brand,
-    borderColor: Colors.brand,
-  },
-  roomTabText: {
-    fontSize: 13,
-    fontWeight: Theme.fontWeight.medium,
-    color: Colors.textPrimary,
-  },
-  roomTabTextActive: {
-    color: Colors.white,
-  },
-  instructionsCard: {
-    marginBottom: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    padding: 14,
-    ...Theme.shadows.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
-  },
-  instructionsTitle: {
-    fontSize: 15,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.sm,
-    letterSpacing: -0.2,
-  },
-  instructionsText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
-  calendarCard: {
-    marginBottom: Theme.spacing.md,
-    padding: 0,
-    overflow: 'hidden',
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    ...Theme.shadows.sm,
-  },
-  statsCard: {
-    marginBottom: Theme.spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    padding: 14,
-    ...Theme.shadows.sm,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 17,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.error,
-    marginBottom: Theme.spacing.xs,
-    letterSpacing: -0.2,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: Colors.gray100,
-    marginHorizontal: Theme.spacing.md,
-  },
-  actions: {
-    gap: Theme.spacing.sm,
-    marginBottom: Theme.spacing.md,
-  },
-  saveButton: {
-    flex: 1,
-  },
-  resetButton: {
-    flex: 1,
-  },
-  tipsCard: {
-    backgroundColor: Colors.white,
-    marginBottom: Theme.spacing.xl,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.gray100,
-    padding: 14,
-    ...Theme.shadows.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.warning,
-  },
-  tipsIcon: {
-    marginBottom: Theme.spacing.sm,
-  },
-  tipsTitle: {
-    fontSize: 15,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.sm,
-    letterSpacing: -0.2,
-  },
-  tipsText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 22,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F4F8',
-  },
-  emptyIcon: {
-    marginBottom: Theme.spacing.md,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: Theme.fontWeight.bold,
-    color: Colors.textPrimary,
-    marginBottom: Theme.spacing.sm,
-    letterSpacing: -0.2,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  addButton: {
-    marginTop: Theme.spacing.md,
-  },
+const S = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F4F4F8' },
+
+  // Hero
+  hero: { backgroundColor: Colors.brand, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden', paddingTop: STATUS_H + 16, paddingBottom: 24 },
+  heroCircle: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -50 },
+  heroContent: { paddingHorizontal: 22 },
+  heroTitle: { fontSize: 24, fontWeight: Theme.fontWeight.bold, color: Colors.white, letterSpacing: -0.4 },
+  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2, marginBottom: 20 },
+  heroPills: { flexDirection: 'row', backgroundColor: GLASS_LIGHT, borderWidth: 1, borderColor: GLASS_BORDER, borderRadius: 18, paddingHorizontal: 20, paddingVertical: 14, alignSelf: 'flex-start' },
+  heroPill: { alignItems: 'center' },
+  heroPillValue: { fontSize: 22, fontWeight: Theme.fontWeight.bold, color: '#FCA5A5', letterSpacing: -0.3 },
+  heroPillLabel: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  heroPillDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: 20 },
+
+  body: { padding: 16, paddingTop: 20 },
+
+  section: { marginBottom: 18 },
+  sectionTitle: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, letterSpacing: -0.3, marginBottom: 12 },
+  roomTabsContent: { gap: 8 },
+  roomTab: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200 },
+  roomTabActive: { backgroundColor: Colors.brand, borderColor: Colors.brand },
+  roomTabText: { fontSize: 13, fontWeight: Theme.fontWeight.medium, color: Colors.textPrimary },
+  roomTabTextActive: { color: Colors.white },
+
+  instructionsCard: { backgroundColor: Colors.info + '10', borderRadius: 18, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.info + '25' },
+  instructionsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  instructionsIconWrap: { width: 30, height: 30, borderRadius: 10, backgroundColor: Colors.info + '20', alignItems: 'center', justifyContent: 'center' },
+  instructionsTitle: { fontSize: 15, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
+  instructionsText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
+
+  calendarCard: { backgroundColor: Colors.white, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: Colors.gray100, marginBottom: 16, ...Theme.shadows.sm },
+
+  legendRow: { flexDirection: 'row', gap: 20, justifyContent: 'center', marginBottom: 20 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: 12, color: Colors.textSecondary },
+
+  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  saveBtn: { flex: 1 },
+  resetBtn: { flex: 1 },
+
+  tipsCard: { backgroundColor: Colors.white, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: Colors.gray100, borderLeftWidth: 4, borderLeftColor: Colors.warning, ...Theme.shadows.sm, marginBottom: 30 },
+  tipsHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  tipsIconWrap: { width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.warning + '15', alignItems: 'center', justifyContent: 'center' },
+  tipsTitle: { fontSize: 15, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
+  tipsText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 22 },
+
+  // Empty screen
+  emptyScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: '#F4F4F8' },
+  emptyIconWrap: { width: 72, height: 72, borderRadius: 24, backgroundColor: Colors.brand + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, marginBottom: 8, letterSpacing: -0.3 },
+  emptyText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', marginBottom: 8 },
+  addBtn: { marginTop: 12 },
 });

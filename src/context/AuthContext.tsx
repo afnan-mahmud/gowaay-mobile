@@ -52,6 +52,7 @@ function normalizeUser(data: any): User {
     email: data.email || '',
     phone: data.phone || '',
     role: data.role || 'guest',
+    adminLevel: data.adminLevel || undefined,
     profilePictureUrl: data.profilePictureUrl || null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,

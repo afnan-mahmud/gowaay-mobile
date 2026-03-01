@@ -69,6 +69,15 @@ import HostProfileEditScreen from '../screens/host/HostProfileEditScreen';
 import HostApplicationScreen from '../screens/host/HostApplicationScreen';
 import HostReviewsScreen from '../screens/host/HostReviewsScreen';
 
+// Admin Screens
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminRoomsScreen from '../screens/admin/AdminRoomsScreen';
+import AdminHostsScreen from '../screens/admin/AdminHostsScreen';
+import AdminBookingsScreen from '../screens/admin/AdminBookingsScreen';
+import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
+import AdminWhatsAppChatsScreen from '../screens/admin/AdminWhatsAppChatsScreen';
+import AdminChatScreen from '../screens/admin/AdminChatScreen';
+
 import { api } from '../api/client';
 import { withAuth } from '../components/withAuth';
 
@@ -93,6 +102,15 @@ const ProtectedHostBalance = withAuth(HostBalanceScreen, { role: 'host' });
 const ProtectedHostDashboard = withAuth(HostDashboardScreen, { role: 'host' });
 const ProtectedHostProfileEdit = withAuth(HostProfileEditScreen, { role: 'host' });
 const ProtectedHostReviews = withAuth(HostReviewsScreen, { role: 'host' });
+
+// Admin-only screen wrappers
+const ProtectedAdminDashboard = withAuth(AdminDashboardScreen, { role: 'admin' });
+const ProtectedAdminRooms = withAuth(AdminRoomsScreen, { role: 'admin' });
+const ProtectedAdminHosts = withAuth(AdminHostsScreen, { role: 'admin' });
+const ProtectedAdminBookings = withAuth(AdminBookingsScreen, { role: 'admin' });
+const ProtectedAdminUsers = withAuth(AdminUsersScreen, { role: 'admin' });
+const ProtectedAdminWhatsAppChats = withAuth(AdminWhatsAppChatsScreen, { role: 'admin' });
+const ProtectedAdminChat = withAuth(AdminChatScreen, { role: 'admin' });
 
 // Tab Bar Icon Component
 const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => (
@@ -336,6 +354,164 @@ function HostTabs() {
   );
 }
 
+// ─── Admin Tab Navigator ──────────────────────────────────────────────────────
+function AdminTabs() {
+  const { count: unreadCount } = useUnreadNotificationCount();
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#8B5CF6',
+        tabBarInactiveTintColor: Colors.gray400,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: Colors.border,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: Theme.fontSize.xs,
+          fontWeight: Theme.fontWeight.medium,
+        },
+        headerStyle: {
+          backgroundColor: Colors.white,
+          borderBottomWidth: 1,
+          borderBottomColor: Colors.border,
+        },
+        headerTitleStyle: {
+          fontSize: Theme.fontSize.lg,
+          fontWeight: Theme.fontWeight.bold,
+          color: Colors.textPrimary,
+        },
+      }}
+    >
+      <Tab.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="grid-outline" color={color} size={size} />,
+          title: 'Dashboard',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="AdminRoomsTab"
+        component={AdminRoomsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="home-outline" color={color} size={size} />,
+          title: 'Rooms',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="AdminHostsTab"
+        component={AdminHostsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="people-outline" color={color} size={size} />,
+          title: 'Hosts',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="notifications-outline" color={color} size={size} />,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: Colors.error, fontSize: 10 },
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="person-outline" color={color} size={size} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+// ─── Moderator Tab Navigator ────────────────────────────────────────────────
+function ModeratorTabs() {
+  const { count: unreadCount } = useUnreadNotificationCount();
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        tabBarActiveTintColor: '#F59E0B',
+        tabBarInactiveTintColor: Colors.gray400,
+        tabBarStyle: {
+          borderTopWidth: 1,
+          borderTopColor: Colors.border,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: Theme.fontSize.xs,
+          fontWeight: Theme.fontWeight.medium,
+        },
+        headerStyle: {
+          backgroundColor: Colors.white,
+          borderBottomWidth: 1,
+          borderBottomColor: Colors.border,
+        },
+        headerTitleStyle: {
+          fontSize: Theme.fontSize.lg,
+          fontWeight: Theme.fontWeight.bold,
+          color: Colors.textPrimary,
+        },
+      }}
+    >
+      <Tab.Screen
+        name="ModeratorChat"
+        component={AdminChatScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="chatbubbles-outline" color={color} size={size} />,
+          title: 'Chats',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="ModeratorWhatsApp"
+        component={AdminWhatsAppChatsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="logo-whatsapp" color={color} size={size} />,
+          title: 'WhatsApp',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="ModeratorBookings"
+        component={AdminBookingsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="calendar-outline" color={color} size={size} />,
+          title: 'Bookings',
+          headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="notifications-outline" color={color} size={size} />,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: Colors.error, fontSize: 10 },
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <TabBarIcon name="person-outline" color={color} size={size} />,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 // Deep linking configuration
 const linking = {
   prefixes: ['gowaay://'],
@@ -362,6 +538,12 @@ const linking = {
       HostListings: 'host/listings',
       HostBalance: 'host/balance',
       HostCalendar: 'host/calendar',
+      AdminRooms: 'admin/rooms',
+      AdminHosts: 'admin/hosts',
+      AdminBookings: 'admin/bookings',
+      AdminUsers: 'admin/users',
+      AdminWhatsAppChats: 'admin/whatsapp-chats',
+      AdminChat: 'admin/chat',
     },
   },
 };
@@ -410,10 +592,13 @@ export default function AppNavigator() {
   }
 
   const isHost = user?.role === 'host';
+  const isAdmin = user?.role === 'admin';
+  const isModerator = isAdmin && user?.adminLevel === 'moderator';
 
-  // Determine which tab navigator to use
   const getMainTabs = () => {
     if (!isAuthenticated) return GuestBrowseTabs;
+    if (isAdmin && isModerator) return ModeratorTabs;
+    if (isAdmin) return AdminTabs;
     if (isHost) return HostTabs;
     return AuthenticatedGuestTabs;
   };
@@ -598,6 +783,43 @@ export default function AppNavigator() {
           name="HostApplication" 
           component={HostApplicationScreen}
           options={{ title: 'Become a Host' }}
+        />
+
+        {/* Admin Screens (protected — admin role required) */}
+        <Stack.Screen 
+          name="AdminRooms" 
+          component={ProtectedAdminRooms}
+          options={{ title: 'Room Management', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminHosts" 
+          component={ProtectedAdminHosts}
+          options={{ title: 'Host Management', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminBookings" 
+          component={ProtectedAdminBookings}
+          options={{ title: 'All Bookings', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminUsers" 
+          component={ProtectedAdminUsers}
+          options={{ title: 'User Management', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminReviews" 
+          component={ProtectedAdminRooms}
+          options={{ title: 'Reviews' }}
+        />
+        <Stack.Screen 
+          name="AdminWhatsAppChats" 
+          component={ProtectedAdminWhatsAppChats}
+          options={{ title: 'WhatsApp Chats', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminChat" 
+          component={ProtectedAdminChat}
+          options={{ title: 'Chat Monitoring', headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>

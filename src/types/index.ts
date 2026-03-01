@@ -13,6 +13,7 @@ export interface User {
   email: string;
   phone: string;
   role: 'guest' | 'host' | 'admin';
+  adminLevel?: 'super_admin' | 'admin' | 'moderator';
   profilePictureUrl?: string | null;
   createdAt?: string;
   updatedAt?: string;
