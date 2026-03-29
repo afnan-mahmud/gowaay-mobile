@@ -116,7 +116,7 @@ export default function EditProfileScreen({ navigation }: any) {
               height: asset.height,
             });
             
-            const response = await api.uploads.image(asset.uri, false);
+            const response = await api.uploads.image(asset.uri);
             
             console.log('📦 Upload response:', {
               success: response.success,

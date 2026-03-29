@@ -22,6 +22,8 @@ import Loading from '../../components/Loading';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { IMG_BASE_URL } from '../../constants/config';
+import { useAuth } from '../../context/AuthContext';
+
 
 // Helper function to get full image URL
 const getImageUrl = (imageUrl: string) => {
@@ -33,6 +35,7 @@ const getImageUrl = (imageUrl: string) => {
 };
 
 export default function HostProfileEditScreen({ navigation }: any) {
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -84,7 +87,14 @@ export default function HostProfileEditScreen({ navigation }: any) {
     try {
       const response = await api.hosts.profile();
       if (response.success && response.data) {
-        const profile = response.data;
+        const profile = response.data as {
+          displayName?: string;
+          phone?: string;
+          whatsapp?: string;
+          locationName?: string;
+          locationMapUrl?: string;
+          profilePictureUrl?: string;
+        };
         setDisplayName(profile.displayName || '');
         setPhone(profile.phone || '');
         setWhatsapp(profile.whatsapp || '');
@@ -125,7 +135,7 @@ export default function HostProfileEditScreen({ navigation }: any) {
               height: asset.height,
             });
             
-            const response = await api.uploads.image(asset.uri, false);
+            const response = await api.uploads.image(asset.uri);
             
             console.log('📦 Upload response:', {
               success: response.success,
@@ -204,7 +214,10 @@ export default function HostProfileEditScreen({ navigation }: any) {
         Alert.alert('Success', 'Host profile updated successfully', [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: async () => {
+              await refreshUser();
+              navigation.goBack();
+            },
           },
         ]);
       } else {

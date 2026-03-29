@@ -1,5 +1,5 @@
 /**
- * Search Screen - Search and filter rooms
+ * Search Screen - Search and filter rooms + RateHawk hotels
  */
 
 import React, { useState, useCallback } from 'react';
@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { api } from '../../api/client';
 import CachedImage from '../../components/CachedImage';
-import Card from '../../components/Card';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import AnimatedPressable from '../../components/AnimatedPressable';
@@ -37,7 +36,27 @@ interface Room {
   baths: number;
   rating?: number;
   instantBooking?: boolean;
+  source: 'gowaay';
 }
+
+interface RateHawkHotel {
+  hotelId: string;
+  name: string;
+  locationName: string;
+  priceBdt: number;
+  priceUsd: number;
+  images: Array<{ url: string }>;
+  starRating: number;
+  mealType: string;
+  roomName: string;
+  checkIn: string;
+  checkOut: string;
+  searchHash: string | null;
+  matchHash: string | null;
+  source: 'ratehawk';
+}
+
+type ListItem = Room | RateHawkHotel;
 
 const getImageUrl = (imageUrl: string) => {
   if (!imageUrl) return '';
@@ -45,6 +64,13 @@ const getImageUrl = (imageUrl: string) => {
     return imageUrl;
   }
   return `${IMG_BASE_URL}${imageUrl}`;
+};
+
+const MEAL_LABELS: Record<string, string> = {
+  breakfast: 'Breakfast',
+  'half-board': 'Half Board',
+  'full-board': 'Full Board',
+  'all-inclusive': 'All Inclusive',
 };
 
 type SortOption = 'recommended' | 'price_low' | 'price_high' | 'rating';
@@ -59,7 +85,7 @@ const SORT_OPTIONS: { key: SortOption; label: string; icon: string }[] = [
 export default function SearchScreen({ navigation, route }: any) {
   const { location, checkIn, checkOut, guests, isSearching } = route.params || {};
   const [searchQuery, setSearchQuery] = useState(route.params?.query || location || '');
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('recommended');
@@ -79,138 +105,93 @@ export default function SearchScreen({ navigation, route }: any) {
     return true;
   };
 
-  const sortRooms = useCallback((roomsList: Room[], sort: SortOption): Room[] => {
-    const sorted = [...roomsList];
+  const sortItems = useCallback((list: ListItem[], sort: SortOption): ListItem[] => {
+    const getPrice = (item: ListItem) =>
+      item.source === 'ratehawk' ? (item as RateHawkHotel).priceBdt : (item as Room).totalPriceTk;
+    const getRating = (item: ListItem) =>
+      item.source === 'ratehawk' ? (item as RateHawkHotel).starRating * 2 : ((item as Room).rating || 0);
+
+    const sorted = [...list];
     switch (sort) {
       case 'price_low':
-        return sorted.sort((a, b) => a.totalPriceTk - b.totalPriceTk);
+        return sorted.sort((a, b) => getPrice(a) - getPrice(b));
       case 'price_high':
-        return sorted.sort((a, b) => b.totalPriceTk - a.totalPriceTk);
+        return sorted.sort((a, b) => getPrice(b) - getPrice(a));
       case 'rating':
-        return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return sorted.sort((a, b) => getRating(b) - getRating(a));
       default:
-        return sorted;
+        // recommended: GoWaay rooms first, then RateHawk
+        return sorted.sort((a, b) => {
+          if (a.source === b.source) return 0;
+          return a.source === 'gowaay' ? -1 : 1;
+        });
     }
   }, []);
 
   const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim() && !location) return;
+    const q = searchQuery.trim() || location || '';
+    if (!q) return;
 
     setLoading(true);
     setSearched(true);
-    
+
     try {
-      const searchParams: any = { page: 1, limit: 50 };
-      if (location) {
-        searchParams.q = location;
-      } else if (searchQuery) {
-        searchParams.q = searchQuery;
-      }
-      
-      const response = await api.rooms.list(searchParams);
+      const searchParams: any = { page: 1, limit: 30 };
+      searchParams.q = q;
+      if (checkIn) searchParams.checkIn = checkIn;
+      if (checkOut) searchParams.checkOut = checkOut;
+      if (guests && guests > 0) searchParams.guests = guests;
 
-      if (response && typeof response === 'object' && 'error' in response) {
-        const errorResponse = response as any;
-        Alert.alert('Search Error', errorResponse.message || errorResponse.error || 'Failed to search rooms.');
-        setRooms([]);
-        setLoading(false);
-        return;
-      }
-      
-      let filteredRooms: Room[] = [];
-      
-      try {
-        if (response && typeof response === 'object') {
-          if ('success' in response && response.success === true && 'data' in response) {
-            const data = (response as any).data;
-            if (data && typeof data === 'object') {
-              if ('rooms' in data && Array.isArray(data.rooms)) {
-                filteredRooms = data.rooms;
-              } else if (Array.isArray(data)) {
-                filteredRooms = data;
-              } else if ('data' in data && Array.isArray(data.data)) {
-                filteredRooms = data.data;
-              }
-            } else if (Array.isArray(response.data)) {
-              filteredRooms = response.data;
-            }
-          } else if (Array.isArray(response)) {
-            filteredRooms = response;
-          } else if ('data' in response && Array.isArray((response as any).data)) {
-            filteredRooms = (response as any).data;
-          } else if ('rooms' in response && Array.isArray((response as any).rooms)) {
-            filteredRooms = (response as any).rooms;
-          }
-        } else if (Array.isArray(response)) {
-          filteredRooms = response;
+      const response = await api.rooms.list(searchParams) as any;
+
+      let dbRooms: Room[] = [];
+      let rhHotels: RateHawkHotel[] = [];
+
+      if (response?.success && response?.data) {
+        const data = response.data;
+        if (Array.isArray(data.rooms)) {
+          dbRooms = data.rooms.map((r: any) => ({ ...r, source: 'gowaay' as const }));
         }
-
-        if (filteredRooms.length === 0 && response) {
-          if (response && typeof response === 'object' && 'data' in response) {
-            const data = (response as any).data;
-            if (data && typeof data === 'object' && 'rooms' in data && Array.isArray(data.rooms)) {
-              filteredRooms = data.rooms;
-            }
-          }
+        if (Array.isArray(data.ratehawkHotels)) {
+          rhHotels = data.ratehawkHotels.map((h: any) => ({ ...h, source: 'ratehawk' as const }));
         }
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-      }
-      
-      if (!Array.isArray(filteredRooms)) {
-        setRooms([]);
-        return;
       }
 
-      if (filteredRooms.length === 0) {
-        setRooms([]);
-        return;
-      }
-      
+      // Guest filter on DB rooms (client-side fallback)
       if (guests && guests > 0) {
-        filteredRooms = filteredRooms.filter((room: Room) => (room.maxGuests || 1) >= guests);
+        dbRooms = dbRooms.filter((room) => (room.maxGuests || 1) >= guests);
       }
-      
-      if (checkIn && checkOut && filteredRooms.length > 0) {
+
+      // Date availability filter on DB rooms
+      if (checkIn && checkOut && dbRooms.length > 0) {
         try {
-          const availabilityPromises = filteredRooms.map(async (room: any) => {
-            try {
-              const unavailableResponse = await api.rooms.getUnavailable(room._id);
-              if (unavailableResponse && typeof unavailableResponse === 'object') {
-                if ('success' in unavailableResponse && unavailableResponse.success && 'data' in unavailableResponse) {
-                  room.unavailableDates = unavailableResponse.data?.unavailableDates || [];
-                } else if ('unavailableDates' in unavailableResponse) {
-                  room.unavailableDates = unavailableResponse.unavailableDates || [];
-                } else if (Array.isArray(unavailableResponse)) {
-                  room.unavailableDates = unavailableResponse;
-                } else {
-                  room.unavailableDates = [];
-                }
-              } else {
-                room.unavailableDates = [];
+          const withAvailability = await Promise.all(
+            dbRooms.map(async (room) => {
+              try {
+                const unavailRes = await api.rooms.getUnavailable(room._id) as any;
+                const dates = unavailRes?.data?.unavailableDates || unavailRes?.unavailableDates || [];
+                return { ...room, unavailableDates: dates };
+              } catch {
+                return { ...room, unavailableDates: [] };
               }
-            } catch {
-              room.unavailableDates = [];
-            }
-            return room;
-          });
-          
-          const roomsWithAvailability = await Promise.all(availabilityPromises);
-          filteredRooms = roomsWithAvailability.filter((room: any) => isDateRangeAvailable(room, checkIn, checkOut));
+            })
+          );
+          dbRooms = withAvailability.filter((r) => isDateRangeAvailable(r, checkIn, checkOut)) as Room[];
         } catch {
-          // Continue without date filtering
+          // continue without availability filter
         }
       }
-      
-      setRooms(sortRooms(filteredRooms, sortBy));
+
+      const combined: ListItem[] = sortItems([...dbRooms, ...rhHotels], sortBy);
+      setItems(combined);
     } catch (error: any) {
       const msg = getErrorMessage(error);
       Toast.show({ type: 'error', title: 'Search Failed', message: msg });
-      setRooms([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, location, guests, checkIn, checkOut, sortBy, sortRooms]);
+  }, [searchQuery, location, guests, checkIn, checkOut, sortBy, sortItems]);
 
   React.useEffect(() => {
     if (isSearching && location) {
@@ -218,28 +199,29 @@ export default function SearchScreen({ navigation, route }: any) {
     }
   }, [isSearching, location, checkIn, checkOut, guests, handleSearch]);
 
-  const handleSortChange = useCallback((sort: SortOption) => {
-    setSortBy(sort);
-    if (rooms.length > 0) {
-      setRooms(sortRooms(rooms, sort));
-    }
-  }, [rooms, sortRooms]);
+  const handleSortChange = useCallback(
+    (sort: SortOption) => {
+      setSortBy(sort);
+      if (items.length > 0) setItems(sortItems(items, sort));
+    },
+    [items, sortItems]
+  );
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const renderRoom = ({ item }: { item: Room }) => (
+  // ── Render GoWaay room card ──────────────────────────────────────────────
+  const renderGowaayRoom = (item: Room) => (
     <AnimatedPressable
       onPress={() => navigation.navigate('RoomDetail', { roomId: item._id, checkIn, checkOut, guests })}
-      style={styles.roomCard}
+      style={styles.card}
     >
-      <View style={styles.roomImageWrapper}>
+      <View style={styles.imageWrapper}>
         <CachedImage
           source={{ uri: getImageUrl(item.images[0]?.url) }}
-          style={styles.roomImage}
+          style={styles.image}
           resizeMode="cover"
         />
         {item.rating != null && item.rating > 0 && (
@@ -254,22 +236,89 @@ export default function SearchScreen({ navigation, route }: any) {
           </View>
         )}
       </View>
-      <View style={styles.roomInfo}>
-        <Text style={styles.roomTitle} numberOfLines={2}>{item.title}</Text>
+      <View style={styles.info}>
+        <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
         <View style={styles.locationRow}>
           <Icon name="location-outline" size={12} color={Colors.textTertiary} />
-          <Text style={styles.roomLocation} numberOfLines={1}>{item.locationName}</Text>
+          <Text style={styles.location} numberOfLines={1}>{item.locationName}</Text>
         </View>
-        <Text style={styles.roomDetails}>
+        <Text style={styles.details}>
           {item.maxGuests} guests · {item.beds} beds · {item.baths} baths
         </Text>
-        <View style={styles.roomPriceRow}>
-          <Text style={styles.roomPrice}>৳{item.totalPriceTk.toLocaleString()}</Text>
-          <Text style={styles.roomPriceLabel}> / night</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>৳{item.totalPriceTk.toLocaleString()}</Text>
+          <Text style={styles.priceLabel}> / night</Text>
         </View>
       </View>
     </AnimatedPressable>
   );
+
+  // ── Render RateHawk hotel card ───────────────────────────────────────────
+  const renderRateHawkHotel = (item: RateHawkHotel) => {
+    const imageUrl = item.images?.[0]?.url || '';
+    const hasMeal = item.mealType && item.mealType !== 'nomeal';
+    const mealLabel = MEAL_LABELS[item.mealType] || null;
+
+    return (
+      <AnimatedPressable
+        onPress={() =>
+          navigation.navigate('HotelDetail', {
+            hotelId: item.hotelId,
+            checkIn: item.checkIn || checkIn,
+            checkOut: item.checkOut || checkOut,
+            guests,
+          })
+        }
+        style={styles.card}
+      >
+        <View style={styles.imageWrapper}>
+          {imageUrl ? (
+            <CachedImage
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.image, styles.imagePlaceholder]}>
+              <Icon name="business-outline" size={32} color={Colors.gray300} />
+            </View>
+          )}
+          {item.starRating > 0 && (
+            <View style={styles.ratingBadge}>
+              <Icon name="star" size={11} color="#FFC107" />
+              <Text style={styles.ratingText}>{item.starRating.toFixed(0)}</Text>
+            </View>
+          )}
+          {hasMeal && (
+            <View style={[styles.ratingBadge, styles.mealBadge]}>
+              <Icon name="restaurant-outline" size={10} color={Colors.white} />
+              {mealLabel && <Text style={styles.mealText}>{mealLabel}</Text>}
+            </View>
+          )}
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={2}>{item.name}</Text>
+          <View style={styles.locationRow}>
+            <Icon name="location-outline" size={12} color={Colors.textTertiary} />
+            <Text style={styles.location} numberOfLines={1}>{item.locationName}</Text>
+          </View>
+          {item.roomName ? (
+            <Text style={styles.details} numberOfLines={1}>{item.roomName}</Text>
+          ) : null}
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>৳{item.priceBdt.toLocaleString()}</Text>
+            <Text style={styles.priceLabel}> / night</Text>
+            <Text style={styles.usdPrice}> · ${item.priceUsd} USD</Text>
+          </View>
+        </View>
+      </AnimatedPressable>
+    );
+  };
+
+  const renderItem = ({ item }: { item: ListItem }) => {
+    if (item.source === 'ratehawk') return renderRateHawkHotel(item as RateHawkHotel);
+    return renderGowaayRoom(item as Room);
+  };
 
   return (
     <View style={styles.container}>
@@ -315,7 +364,7 @@ export default function SearchScreen({ navigation, route }: any) {
       )}
 
       {/* Sort Chips */}
-      {searched && rooms.length > 0 && (
+      {searched && items.length > 0 && (
         <View style={styles.sortSection}>
           <ScrollView
             horizontal
@@ -340,14 +389,14 @@ export default function SearchScreen({ navigation, route }: any) {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <Text style={styles.resultCount}>{rooms.length} result{rooms.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.resultCount}>{items.length} result{items.length !== 1 ? 's' : ''}</Text>
         </View>
       )}
 
       {/* Results */}
       {loading ? (
         <SearchListSkeleton count={4} />
-      ) : searched && rooms.length === 0 ? (
+      ) : searched && items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Icon name="search-outline" size={56} color={Colors.gray300} />
           <Text style={styles.emptyTitle}>No Results Found</Text>
@@ -362,9 +411,13 @@ export default function SearchScreen({ navigation, route }: any) {
         </View>
       ) : (
         <FlatList
-          data={rooms}
-          renderItem={renderRoom}
-          keyExtractor={(item) => item._id}
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={(item) =>
+            item.source === 'ratehawk'
+              ? `rh-${(item as RateHawkHotel).hotelId}`
+              : (item as Room)._id
+          }
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             !searched ? (
@@ -418,30 +471,37 @@ const styles = StyleSheet.create({
   sortChipTextActive: { color: Colors.white },
   resultCount: { fontSize: 12, color: Colors.textTertiary, paddingHorizontal: 16, marginTop: 8 },
   list: { padding: 16, gap: 10 },
-  roomCard: {
+  card: {
     flexDirection: 'row', marginBottom: 0, backgroundColor: Colors.white,
     borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: Colors.gray100, ...Theme.shadows.sm,
   },
-  roomImageWrapper: { position: 'relative' },
-  roomImage: { width: 130, height: 130, borderTopLeftRadius: 18, borderBottomLeftRadius: 18 },
+  imageWrapper: { position: 'relative' },
+  image: { width: 130, height: 130, borderTopLeftRadius: 18, borderBottomLeftRadius: 18 },
+  imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray100 },
   ratingBadge: {
     position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 7, paddingVertical: 3,
     borderRadius: 8, gap: 3,
   },
   ratingText: { fontSize: 11, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
+  mealBadge: {
+    top: 'auto', bottom: 8, left: 8,
+    backgroundColor: 'rgba(245,158,11,0.92)',
+  },
+  mealText: { fontSize: 10, fontWeight: Theme.fontWeight.semibold, color: Colors.white },
   instantBadge: {
     position: 'absolute', bottom: 8, left: 8, width: 22, height: 22, borderRadius: 8,
     backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
   },
-  roomInfo: { flex: 1, padding: 12, justifyContent: 'center' },
-  roomTitle: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, marginBottom: 3, letterSpacing: -0.2 },
+  info: { flex: 1, padding: 12, justifyContent: 'center' },
+  title: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, marginBottom: 3, letterSpacing: -0.2 },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3, gap: 3 },
-  roomLocation: { fontSize: 12, color: Colors.textTertiary, flex: 1 },
-  roomDetails: { fontSize: 11, color: Colors.textSecondary, marginBottom: 6 },
-  roomPriceRow: { flexDirection: 'row', alignItems: 'baseline' },
-  roomPrice: { fontSize: 16, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
-  roomPriceLabel: { fontSize: 11, color: Colors.textSecondary },
+  location: { fontSize: 12, color: Colors.textTertiary, flex: 1 },
+  details: { fontSize: 11, color: Colors.textSecondary, marginBottom: 6 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline' },
+  price: { fontSize: 16, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
+  priceLabel: { fontSize: 11, color: Colors.textSecondary },
+  usdPrice: { fontSize: 10, color: Colors.textTertiary },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 32 },
   emptyTitle: { fontSize: 20, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, marginTop: 14, marginBottom: 6, letterSpacing: -0.3 },
   emptyText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },

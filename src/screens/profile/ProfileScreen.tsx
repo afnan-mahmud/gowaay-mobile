@@ -9,6 +9,14 @@ import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
+import CachedImage from '../../components/CachedImage';
+import { IMG_BASE_URL } from '../../constants/config';
+
+const getImageUrl = (imageUrl: string) => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  return `${IMG_BASE_URL}${imageUrl}`;
+};
 
 const MENU_GROUPS = (user: any, navigation: any) => [
   {
@@ -65,7 +73,15 @@ export default function ProfileScreen({ navigation }: any) {
         <View style={S.heroCircle} />
         <View style={S.avatarWrap}>
           <View style={S.avatar}>
+          {user?.profilePictureUrl ? (
+            <CachedImage
+              source={{ uri: getImageUrl(user.profilePictureUrl) }}
+              style={S.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
             <Text style={S.avatarText}>{user?.name?.charAt(0)?.toUpperCase() || 'U'}</Text>
+          )}
           </View>
           {user?.role && (
             <View style={[S.roleBadge, user.role === 'host' && S.roleBadgeHost]}>
@@ -158,7 +174,9 @@ const S = StyleSheet.create({
     width: 88, height: 88, borderRadius: 44, backgroundColor: Colors.white,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
+    overflow: 'hidden',
   },
+  avatarImage: { width: 88, height: 88, borderRadius: 44 },
   avatarText: { fontSize: 36, fontWeight: Theme.fontWeight.bold, color: Colors.brand },
   roleBadge: {
     position: 'absolute', bottom: -4, right: -4,

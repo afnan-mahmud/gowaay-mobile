@@ -17,7 +17,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { api, ApiResponse } from '../../api/client';
+import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import Icon from '../../components/Icon';
 import Loading from '../../components/Loading';
@@ -57,9 +57,11 @@ interface Pagination {
   hasMore?: boolean;
 }
 
-interface RoomsResponse {
-  rooms: RoomItem[];
-  pagination: Pagination;
+interface AdminRoomsApiResponse {
+  success: boolean;
+  data?: RoomItem[];
+  pagination?: Pagination;
+  message?: string;
 }
 
 export default function AdminRoomsScreen({ navigation }: any) {
@@ -84,15 +86,16 @@ export default function AdminRoomsScreen({ navigation }: any) {
       }
       const nextPage = reset ? 1 : page;
       const statusParam = filter === 'all' ? undefined : filter;
-      const response: ApiResponse<RoomsResponse> = await api.admin.rooms<RoomsResponse>({
+      const response = await api.admin.rooms<RoomItem[]>({
         page: nextPage,
         limit: 20,
         status: statusParam,
-      });
+      }) as unknown as AdminRoomsApiResponse;
 
-      if (response.success && response.data) {
-        const { rooms: newRooms, pagination: pag } = response.data;
-        setRooms(reset ? newRooms || [] : (prev) => [...prev, ...(newRooms || [])]);
+      if (response.success) {
+        const newRooms = response.data || [];
+        const pag = response.pagination;
+        setRooms(reset ? newRooms : (prev) => [...prev, ...newRooms]);
         setHasMore(pag?.hasMore ?? (pag ? (pag.page || 0) < (pag.totalPages || 1) : false));
       } else {
         setError(response.message || 'Failed to load rooms');
@@ -128,14 +131,15 @@ export default function AdminRoomsScreen({ navigation }: any) {
     const fetchMore = async () => {
       try {
         const statusParam = filter === 'all' ? undefined : filter;
-        const response: ApiResponse<RoomsResponse> = await api.admin.rooms<RoomsResponse>({
+        const response = await api.admin.rooms<RoomItem[]>({
           page,
           limit: 20,
           status: statusParam,
-        });
-        if (response.success && response.data) {
-          const { rooms: newRooms, pagination: pag } = response.data;
-          setRooms((prev) => [...prev, ...(newRooms || [])]);
+        }) as unknown as AdminRoomsApiResponse;
+        if (response.success) {
+          const newRooms = response.data || [];
+          const pag = response.pagination;
+          setRooms((prev) => [...prev, ...newRooms]);
           setHasMore(pag?.hasMore ?? (pag ? (pag.page || 0) < (pag.totalPages || 1) : false));
         }
       } catch (err: any) {

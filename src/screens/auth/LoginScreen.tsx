@@ -20,6 +20,8 @@ import Button from '../../components/Button';
 import Icon from '../../components/Icon';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
+import { Image } from 'react-native';
+
 
 type Step = 'phone' | 'otp' | 'name';
 
@@ -132,9 +134,12 @@ export default function LoginScreen({ navigation, route }: any) {
         <View style={S.heroCircle1} /><View style={S.heroCircle2} />
         <View style={S.logoWrap}>
           <View style={S.logoIcon}>
-            <Icon name="home" size={32} color={Colors.brand} />
+            <Image 
+              source={require('../../assets/images/logo.png')} 
+              style={{ width: 72, height: 72 }} 
+              resizeMode="contain"
+            />
           </View>
-          <Text style={S.brandName}>GoWaay</Text>
           <Text style={S.tagline}>Find Your Perfect Stay</Text>
         </View>
       </View>

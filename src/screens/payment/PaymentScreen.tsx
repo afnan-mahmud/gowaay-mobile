@@ -1,5 +1,5 @@
 /**
- * Payment Screen - SSLCommerz WebView Integration
+ * Payment Screen - EPS WebView Integration
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -56,7 +56,7 @@ export default function PaymentScreen({ route, navigation }: any) {
 
   const initializePayment = async () => {
     try {
-      const response = await api.payments.initSsl({ bookingId });
+      const response = await api.payments.initEps({ bookingId });
       
       if (response.success && response.data) {
         const gatewayUrl = (response.data as any).gatewayUrl;

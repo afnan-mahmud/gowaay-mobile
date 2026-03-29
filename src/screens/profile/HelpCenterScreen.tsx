@@ -47,7 +47,7 @@ export default function HelpCenterScreen({ navigation }: any) {
     },
     {
       question: 'What payment methods are accepted?',
-      answer: 'We accept payments through SSLCommerz, which supports credit cards, debit cards, mobile banking (bKash, Nagad, Rocket), and internet banking.',
+      answer: 'We accept payments through EPS (Easy Payment System), which supports credit cards, debit cards, mobile banking (bKash, Nagad, Rocket), and internet banking.',
     },
     {
       question: 'How do I become a host?',

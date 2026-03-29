@@ -155,7 +155,7 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
                 type: asset.type,
               });
               
-              const response = await api.uploads.image(asset.uri, false);
+              const response = await api.uploads.image(asset.uri);
               
               console.log('📦 Upload response:', {
                 success: response.success,

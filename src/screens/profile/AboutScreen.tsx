@@ -17,6 +17,7 @@ import Icon from '../../components/Icon';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 
+
 export default function AboutScreen({ navigation }: any) {
   const handleOpenURL = (url: string) => {
     Linking.openURL(url).catch(() => {
@@ -55,9 +56,12 @@ export default function AboutScreen({ navigation }: any) {
       <Card style={styles.card}>
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
-            <Icon name="home" size={40} color={Colors.white} />
+            <Image 
+                source={require('../../assets/images/logo.png')} 
+                style={{ width: 72, height: 72 }} 
+                resizeMode="contain"
+              />
           </View>
-          <Text style={styles.appName}>GoWaay</Text>
           <Text style={styles.tagline}>Your Perfect Stay Awaits</Text>
         </View>
       </Card>

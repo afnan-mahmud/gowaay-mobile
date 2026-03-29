@@ -15,7 +15,7 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
-import { api, ApiResponse } from '../../api/client';
+import { api } from '../../api/client';
 import Icon from '../../components/Icon';
 import Loading from '../../components/Loading';
 import ErrorState from '../../components/ErrorState';
@@ -60,9 +60,11 @@ interface Pagination {
   hasMore?: boolean;
 }
 
-interface BookingsResponse {
-  bookings: BookingItem[];
-  pagination: Pagination;
+interface AdminBookingsApiResponse {
+  success: boolean;
+  data?: BookingItem[];
+  pagination?: Pagination;
+  message?: string;
 }
 
 export default function AdminBookingsScreen({ navigation }: any) {
@@ -84,15 +86,16 @@ export default function AdminBookingsScreen({ navigation }: any) {
       }
       const nextPage = reset ? 1 : page;
       const statusParam = filter === 'all' ? undefined : filter;
-      const response: ApiResponse<BookingsResponse> = await api.admin.bookings<BookingsResponse>({
+      const response = await api.admin.bookings<BookingItem[]>({
         page: nextPage,
         limit: 20,
         status: statusParam,
-      });
+      }) as unknown as AdminBookingsApiResponse;
 
-      if (response.success && response.data) {
-        const { bookings: newBookings, pagination: pag } = response.data;
-        setBookings(reset ? newBookings || [] : (prev) => [...prev, ...(newBookings || [])]);
+      if (response.success) {
+        const newBookings = response.data || [];
+        const pag = response.pagination;
+        setBookings(reset ? newBookings : (prev) => [...prev, ...newBookings]);
         setHasMore(pag?.hasMore ?? (pag ? (pag.page || 0) < (pag.totalPages || 1) : false));
       } else {
         setError(response.message || 'Failed to load bookings');
@@ -128,14 +131,15 @@ export default function AdminBookingsScreen({ navigation }: any) {
     const fetchMore = async () => {
       try {
         const statusParam = filter === 'all' ? undefined : filter;
-        const response: ApiResponse<BookingsResponse> = await api.admin.bookings<BookingsResponse>({
+        const response = await api.admin.bookings<BookingItem[]>({
           page,
           limit: 20,
           status: statusParam,
-        });
-        if (response.success && response.data) {
-          const { bookings: newBookings, pagination: pag } = response.data;
-          setBookings((prev) => [...prev, ...(newBookings || [])]);
+        }) as unknown as AdminBookingsApiResponse;
+        if (response.success) {
+          const newBookings = response.data || [];
+          const pag = response.pagination;
+          setBookings((prev) => [...prev, ...newBookings]);
           setHasMore(pag?.hasMore ?? (pag ? (pag.page || 0) < (pag.totalPages || 1) : false));
         }
       } catch (err: any) {

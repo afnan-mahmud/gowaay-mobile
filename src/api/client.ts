@@ -458,7 +458,19 @@ export const api = {
 
   // Payments
   payments: {
-    initSsl: (data: { bookingId: string }) => apiClient.post<{ gatewayUrl: string; sessionKey: string }>('/payments/ssl/init', data),
+    initEps: (data: { bookingId: string }) => apiClient.post<{ gatewayUrl: string; sessionKey: string }>('/payments/eps/init', data),
+  },
+
+  // RateHawk
+  ratehawk: {
+    getHotel: <T = any>(hotelId: string, params?: Record<string, string>) =>
+      apiClient.get<T>(`/ratehawk/hotel/${hotelId}`, params as any),
+    getRates: <T = any>(hotelId: string, params: Record<string, string>) =>
+      apiClient.get<T>(`/ratehawk/hotel/${hotelId}/rates`, params as any),
+    createBooking: <T = any>(data: any) =>
+      apiClient.post<T>('/ratehawk/booking', data),
+    getBooking: <T = any>(id: string) =>
+      apiClient.get<T>(`/ratehawk/booking/${id}`),
   },
 
   // Coupons

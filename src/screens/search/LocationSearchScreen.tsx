@@ -37,6 +37,7 @@ interface LocationSuggestion {
   id: string;
   label: string;
   count?: number;
+  source?: 'ratehawk' | string;
 }
 
 export default function LocationSearchScreen({ navigation }: any) {
@@ -83,6 +84,7 @@ export default function LocationSearchScreen({ navigation }: any) {
             id: loc.id || loc.label || loc._id || `loc-${index}-${Math.random()}`,
             label: loc.label || loc.id || loc._id || String(loc),
             count: loc.count || 0,
+            source: loc.source || undefined,
           };
           console.log(`📍 Location ${index}:`, locationObj);
           return locationObj;
@@ -188,14 +190,20 @@ export default function LocationSearchScreen({ navigation }: any) {
                 onPress={() => handleSelectLocation(item.label)}
                 activeOpacity={0.7}
               >
-                <View style={styles.locationIcon}>
-                  <Icon name="location-outline" size={20} color={Colors.brand} />
+                <View style={[styles.locationIcon, item.source === 'ratehawk' && styles.locationIconPartner]}>
+                  <Icon
+                    name={item.source === 'ratehawk' ? 'business-outline' : 'location-outline'}
+                    size={20}
+                    color={item.source === 'ratehawk' ? Colors.textSecondary : Colors.brand}
+                  />
                 </View>
                 <View style={styles.locationInfo}>
                   <Text style={styles.locationText}>{item.label}</Text>
-                  {item.count !== undefined && (
+                  {item.source === 'ratehawk' ? (
+                    <Text style={styles.locationCount}>International hotels</Text>
+                  ) : item.count ? (
                     <Text style={styles.locationCount}>{item.count} properties</Text>
-                  )}
+                  ) : null}
                 </View>
                 <Icon name="chevron-forward-outline" size={18} color={Colors.textTertiary} />
               </TouchableOpacity>
@@ -250,6 +258,7 @@ const styles = StyleSheet.create({
     width: 42, height: 42, borderRadius: 13, backgroundColor: '#FFF1F2',
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
+  locationIconPartner: { backgroundColor: Colors.gray100 },
   locationText: { flex: 1, fontSize: 15, fontWeight: Theme.fontWeight.medium, color: Colors.textPrimary },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48 },
   emptyText: { fontSize: 17, fontWeight: Theme.fontWeight.semibold, color: Colors.textSecondary, marginBottom: 4 },

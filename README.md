@@ -223,7 +223,7 @@ npm run ios
 
 - [ ] Room details screen
 - [ ] Booking flow
-- [ ] Payment integration (SSLCommerz)
+- [ ] Payment integration (EPS)
 - [ ] Push notifications
 - [ ] Deep linking
 - [ ] Offline support

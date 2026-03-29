@@ -50,6 +50,7 @@ import RefundPolicyScreen from '../screens/profile/RefundPolicyScreen';
 
 // Room & Booking Screens
 import RoomDetailScreen from '../screens/room/RoomDetailScreen';
+import HotelDetailScreen from '../screens/hotel/HotelDetailScreen';
 import BookingFlowScreen from '../screens/booking/BookingFlowScreen';
 import BookingDetailScreen from '../screens/booking/BookingDetailScreen';
 import WriteReviewScreen from '../screens/booking/WriteReviewScreen';
@@ -531,6 +532,7 @@ const linking = {
         },
       } as any,
       RoomDetail: 'room/:roomId',
+      HotelDetail: 'hotel/:hotelId',
       BookingDetail: 'booking/:bookingId',
       WriteReview: 'review/:bookingId',
       Chat: 'chat/:threadId',
@@ -635,6 +637,11 @@ export default function AppNavigator() {
           name="RoomDetail" 
           component={RoomDetailScreen}
           options={{ title: 'Room Details' }}
+        />
+        <Stack.Screen 
+          name="HotelDetail" 
+          component={HotelDetailScreen}
+          options={{ title: 'Hotel Details' }}
         />
         <Stack.Screen 
           name="SearchScreen" 
