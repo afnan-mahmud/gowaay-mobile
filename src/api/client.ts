@@ -500,6 +500,7 @@ export const api = {
   hosts: {
     stats: <T = any>() => apiClient.get<T>('/hosts/stats'),
     rooms: () => apiClient.get('/hosts/rooms'),
+    roomDetail: <T = any>(id: string) => apiClient.get<T>(`/hosts/rooms/${id}`),
     bookings: () => apiClient.get('/hosts/bookings'),
     reservations: () => apiClient.get('/hosts/reservations'),
     acceptBooking: (bookingId: string) => apiClient.post(`/bookings/${bookingId}/approve`, { status: 'confirmed' }),

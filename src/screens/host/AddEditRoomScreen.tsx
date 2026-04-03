@@ -25,6 +25,8 @@ import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { IMG_BASE_URL } from '../../constants/config';
 
+const MAX_ROOM_IMAGES = 15;
+
 interface RoomImage {
   url: string;
   w: number;
@@ -97,7 +99,7 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
 
   const loadRoomData = async () => {
     try {
-      const response = await api.rooms.detail(roomId);
+      const response = await api.hosts.roomDetail(roomId);
       if (response.success && response.data) {
         const room = response.data;
         setTitle(room.title || '');
@@ -135,7 +137,7 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
     try {
       const result = await launchImageLibrary({
         mediaType: 'photo',
-        selectionLimit: 5 - images.length, // Limit to 5 total images
+        selectionLimit: MAX_ROOM_IMAGES - images.length,
         quality: 0.8,
       });
 
@@ -431,7 +433,7 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
         {/* Images Section */}
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Photos</Text>
-          <Text style={styles.sectionSubtitle}>Add at least 5 high-quality photos</Text>
+          <Text style={styles.sectionSubtitle}>Add up to {MAX_ROOM_IMAGES} high-quality photos</Text>
 
           {images.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesContainer}>
@@ -458,11 +460,11 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
             variant="outline"
             onPress={pickImages}
             loading={uploading}
-            disabled={uploading || images.length >= 5}
+            disabled={uploading || images.length >= MAX_ROOM_IMAGES}
             style={styles.addPhotoButton}
           />
-          {images.length >= 5 && (
-            <Text style={styles.maxImagesNote}>Maximum 5 images allowed</Text>
+          {images.length >= MAX_ROOM_IMAGES && (
+            <Text style={styles.maxImagesNote}>Maximum {MAX_ROOM_IMAGES} images allowed</Text>
           )}
         </Card>
 
