@@ -42,6 +42,12 @@ const MENU_GROUPS = (user: any, navigation: any) => [
       { icon: 'id-card-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'Host Profile', sub: 'Edit host information', onPress: () => navigation.navigate('HostProfileEdit') },
     ],
   }] : []),
+  ...(user?.role === 'admin' ? [{
+    title: 'Admin',
+    items: [
+      { icon: 'card-outline', iconBg: '#F3E8FF', iconColor: '#8B5CF6', title: 'Partial Payments', sub: 'View & track partial payments', onPress: () => navigation.navigate('AdminPartialPayments') },
+    ],
+  }] : []),
   {
     title: 'More',
     items: [

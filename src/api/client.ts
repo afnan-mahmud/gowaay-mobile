@@ -621,6 +621,8 @@ export const api = {
     createQuickReply: (data: { title: string; message: string }) =>
       apiClient.post('/admin/quick-replies', data),
     deleteQuickReply: (id: string) => apiClient.delete(`/admin/quick-replies/${id}`),
+    partialPayments: <T = any>(params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+      apiClient.get<T>('/partial-payments/admin/list', params),
   },
 
   // Locations

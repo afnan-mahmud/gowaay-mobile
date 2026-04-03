@@ -78,6 +78,7 @@ import AdminBookingsScreen from '../screens/admin/AdminBookingsScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminWhatsAppChatsScreen from '../screens/admin/AdminWhatsAppChatsScreen';
 import AdminChatScreen from '../screens/admin/AdminChatScreen';
+import AdminPartialPaymentsScreen from '../screens/admin/AdminPartialPaymentsScreen';
 
 import { api } from '../api/client';
 import { withAuth } from '../components/withAuth';
@@ -112,6 +113,7 @@ const ProtectedAdminBookings = withAuth(AdminBookingsScreen, { role: 'admin' });
 const ProtectedAdminUsers = withAuth(AdminUsersScreen, { role: 'admin' });
 const ProtectedAdminWhatsAppChats = withAuth(AdminWhatsAppChatsScreen, { role: 'admin' });
 const ProtectedAdminChat = withAuth(AdminChatScreen, { role: 'admin' });
+const ProtectedAdminPartialPayments = withAuth(AdminPartialPaymentsScreen, { role: 'admin' });
 
 // Tab Bar Icon Component
 const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => (
@@ -546,6 +548,7 @@ const linking = {
       AdminUsers: 'admin/users',
       AdminWhatsAppChats: 'admin/whatsapp-chats',
       AdminChat: 'admin/chat',
+      AdminPartialPayments: 'admin/partial-payments',
     },
   },
 };
@@ -827,6 +830,11 @@ export default function AppNavigator() {
           name="AdminChat" 
           component={ProtectedAdminChat}
           options={{ title: 'Chat Monitoring', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminPartialPayments" 
+          component={ProtectedAdminPartialPayments}
+          options={{ title: 'Partial Payments', headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
