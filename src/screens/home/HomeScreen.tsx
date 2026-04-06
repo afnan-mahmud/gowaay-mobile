@@ -61,17 +61,6 @@ interface Room {
   instantBooking?: boolean;
 }
 
-type Category = { key: string; label: string; icon: string };
-
-const CATEGORIES: Category[] = [
-  { key: 'all',     label: 'All',       icon: 'grid-outline' },
-  { key: 'beach',   label: 'Beach',     icon: 'sunny-outline' },
-  { key: 'city',    label: 'City',      icon: 'business-outline' },
-  { key: 'hills',   label: 'Hills',     icon: 'trail-sign-outline' },
-  { key: 'forest',  label: 'Forest',    icon: 'leaf-outline' },
-  { key: 'budget',  label: 'Budget',    icon: 'wallet-outline' },
-];
-
 const DESTINATIONS = [
   { name: "Cox's Bazar", sub: '121 km of beach', icon: 'sunny-outline',        bg: '#FEF3C7', ic: '#D97706' },
   { name: 'Sylhet',      sub: 'Tea & waterfalls', icon: 'leaf-outline',         bg: '#D1FAE5', ic: '#059669' },
@@ -247,8 +236,6 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [activeCategory, setActiveCategory] = useState('all');
-
   const scrollY = useRef(new Animated.Value(0)).current;
 
   // Navigate to a screen that requires login; redirect guest to LoginScreen
@@ -261,6 +248,17 @@ export default function HomeScreen({ navigation }: any) {
   }, [isAuthenticated, navigation]);
 
   useEffect(() => { loadRooms(); }, []);
+  useEffect(() => { if (isAuthenticated) loadFavorites(); }, [isAuthenticated]);
+
+  const loadFavorites = async () => {
+    try {
+      const res = await api.favorites.list();
+      if (res.success && res.data) {
+        const ids = (res.data as any[]).map((r: any) => r._id);
+        setFavorites(new Set(ids));
+      }
+    } catch (_) {}
+  };
 
   const loadRooms = async () => {
     try {
@@ -280,15 +278,27 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const onRefresh = () => { setRefreshing(true); loadRooms(); };
+  const onRefresh = () => { setRefreshing(true); loadRooms(); if (isAuthenticated) loadFavorites(); };
 
   const toggleFav = useCallback((id: string) => {
+    if (!isAuthenticated) {
+      navigation.navigate('LoginScreen');
+      return;
+    }
     setFavorites(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      const wasFav = n.has(id);
+      wasFav ? n.delete(id) : n.add(id);
+      (wasFav ? api.favorites.remove(id) : api.favorites.add(id)).catch(() => {
+        setFavorites(p => {
+          const revert = new Set(p);
+          wasFav ? revert.add(id) : revert.delete(id);
+          return revert;
+        });
+      });
       return n;
     });
-  }, []);
+  }, [isAuthenticated, navigation]);
 
   // Hero shrink on scroll
   const heroScale = scrollY.interpolate({ inputRange: [0, 150], outputRange: [1, 0.92], extrapolate: 'clamp' });
@@ -374,49 +384,6 @@ export default function HomeScreen({ navigation }: any) {
               </View>
             </AnimatedPressable>
           </View>
-        </View>
-
-        {/* ════════════════ CATEGORY TABS ════════════════ */}
-        <View style={S.categoryWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.categoryList}>
-            {CATEGORIES.map(cat => {
-              const active = cat.key === activeCategory;
-              return (
-                <TouchableOpacity
-                  key={cat.key}
-                  onPress={() => setActiveCategory(cat.key)}
-                  style={[S.catChip, active && S.catChipActive]}
-                  activeOpacity={0.7}
-                >
-                  <Icon name={cat.icon} size={14} color={active ? Colors.white : Colors.gray500} />
-                  <Text style={[S.catText, active && S.catTextActive]}>{cat.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* ════════════════ QUICK ACTIONS ════════════════ */}
-        <View style={S.quickSection}>
-          {[
-            { icon: 'calendar-outline',            label: 'Bookings',  color: '#2563EB', bg: '#EFF6FF', nav: 'Bookings',      protected: true },
-            { icon: 'chatbubble-ellipses-outline',  label: 'Messages',  color: '#059669', bg: '#ECFDF5', nav: 'Messages',      protected: true },
-            { icon: 'heart-outline',                label: 'Saved',     color: Colors.brand, bg: '#FFF1F2', nav: 'Favorites', protected: true },
-            ...(user?.role === 'host'
-              ? [{ icon: 'business-outline', label: 'Host',    color: '#D97706', bg: '#FFFBEB', nav: 'Dashboard',      protected: true }]
-              : [{ icon: 'search-outline',   label: 'Explore', color: '#7C3AED', bg: '#F5F3FF', nav: 'LocationSearch', protected: false }]),
-          ].map((a, i) => (
-            <AnimatedPressable
-              key={i}
-              onPress={() => a.protected ? navigateSafe(a.nav) : navigation.navigate(a.nav)}
-              style={S.quickCard}
-            >
-              <View style={[S.quickIconWrap, { backgroundColor: a.bg }]}>
-                <Icon name={a.icon} size={21} color={a.color} />
-              </View>
-              <Text style={S.quickLabel}>{a.label}</Text>
-            </AnimatedPressable>
-          ))}
         </View>
 
         {/* ════════════════ STORY-STYLE ROOMS ════════════════ */}
@@ -713,71 +680,6 @@ const S = StyleSheet.create({
     borderColor: Colors.gray200,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  // ── Categories ────────────────────────────────────────────────────────────
-  categoryWrap: {
-    backgroundColor: Colors.white,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray100,
-  },
-  categoryList: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  catChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: Colors.gray100,
-    borderWidth: 1,
-    borderColor: Colors.gray200,
-  },
-  catChipActive: {
-    backgroundColor: Colors.textPrimary,
-    borderColor: Colors.textPrimary,
-  },
-  catText: {
-    fontSize: 13,
-    fontWeight: Theme.fontWeight.medium,
-    color: Colors.gray500,
-  },
-  catTextActive: {
-    color: Colors.white,
-  },
-
-  // ── Quick actions ──────────────────────────────────────────────────────────
-  quickSection: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    marginTop: 6,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.gray100,
-  },
-  quickCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  quickIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: {
-    fontSize: 11,
-    fontWeight: Theme.fontWeight.semibold,
-    color: Colors.textPrimary,
-    textAlign: 'center',
   },
 
   // ── Sections ──────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
  * Room Detail Screen - View room details and book
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Share,
 } from 'react-native';
 import CachedImage from '../../components/CachedImage';
 import Icon from '../../components/Icon';
@@ -81,7 +82,7 @@ interface RoomReview {
 
 export default function RoomDetailScreen({ route, navigation }: any) {
   const { roomId, checkIn, checkOut, guests } = route.params;
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,11 +90,51 @@ export default function RoomDetailScreen({ route, navigation }: any) {
   const [showGallery, setShowGallery] = useState(false);
   const [reviews, setReviews] = useState<RoomReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalMessage, setLoginModalMessage] = useState('');
+  const [isFavorited, setIsFavorited] = useState(false);
 
   useEffect(() => {
     loadRoom();
     loadReviews();
+    if (isAuthenticated) checkFavorite();
   }, [roomId]);
+
+  const checkFavorite = useCallback(async () => {
+    try {
+      const res = await api.favorites.check(roomId);
+      if (res.success && res.data) {
+        setIsFavorited((res.data as any).isFavorited);
+      }
+    } catch (_) {}
+  }, [roomId]);
+
+  const toggleFavorite = async () => {
+    if (!isAuthenticated) {
+      showLoginRequired('Please login to save this property to favorites');
+      return;
+    }
+    try {
+      if (isFavorited) {
+        await api.favorites.remove(roomId);
+        setIsFavorited(false);
+      } else {
+        await api.favorites.add(roomId);
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Toggle favorite error:', err);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!room) return;
+    try {
+      await Share.share({
+        message: `Check out "${room.title}" on GoWaay!\n${room.locationName}\n৳${room.totalPriceTk.toLocaleString()}/night`,
+      });
+    } catch (_) {}
+  };
 
   const loadRoom = async () => {
     try {
@@ -143,20 +184,22 @@ export default function RoomDetailScreen({ route, navigation }: any) {
     });
   };
 
+  const showLoginRequired = (message: string) => {
+    setLoginModalMessage(message);
+    setShowLoginModal(true);
+  };
+
+  const handleLoginPress = () => {
+    setShowLoginModal(false);
+    navigation.navigate('LoginScreen');
+  };
+
   const handleBook = () => {
     if (!isAuthenticated) {
-      Alert.alert(
-        'Login Required',
-        'Please login to book this property',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Login', onPress: () => logout() },
-        ]
-      );
+      showLoginRequired('Please login to book this property');
       return;
     }
 
-    // Navigate to BookingFlow - it will handle instant vs request mode
     navigation.navigate('BookingFlow', { 
       room,
       checkIn,
@@ -167,7 +210,7 @@ export default function RoomDetailScreen({ route, navigation }: any) {
 
   const handleContactHost = () => {
     if (!isAuthenticated) {
-      Alert.alert('Login Required', 'Please login to contact the host');
+      showLoginRequired('Please login to contact the host');
       return;
     }
 
@@ -254,6 +297,42 @@ export default function RoomDetailScreen({ route, navigation }: any) {
     </Modal>
   );
 
+  const renderLoginModal = () => (
+    <Modal
+      visible={showLoginModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowLoginModal(false)}
+    >
+      <View style={styles.loginModalOverlay}>
+        <View style={styles.loginModalContainer}>
+          <View style={styles.loginModalIconCircle}>
+            <Icon name="lock-closed-outline" size={32} color={Colors.brand} />
+          </View>
+          <Text style={styles.loginModalTitle}>Login Required</Text>
+          <Text style={styles.loginModalMessage}>{loginModalMessage}</Text>
+          <View style={styles.loginModalButtons}>
+            <TouchableOpacity
+              style={styles.loginModalCancelButton}
+              onPress={() => setShowLoginModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loginModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.loginModalLoginButton}
+              onPress={handleLoginPress}
+              activeOpacity={0.7}
+            >
+              <Icon name="log-in-outline" size={18} color={Colors.white} style={{ marginRight: 6 }} />
+              <Text style={styles.loginModalLoginText}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return <RoomDetailSkeleton />;
   }
@@ -318,6 +397,24 @@ export default function RoomDetailScreen({ route, navigation }: any) {
           >
             <Icon name="chevron-back" size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
+
+          {/* Favorite + Share Buttons */}
+          <View style={styles.topRightActions}>
+            <TouchableOpacity
+              style={[styles.topActionBtn, isFavorited && styles.topActionBtnActive]}
+              onPress={toggleFavorite}
+              activeOpacity={0.7}
+            >
+              <Icon name={isFavorited ? 'heart' : 'heart-outline'} size={20} color={isFavorited ? Colors.brand : Colors.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.topActionBtn}
+              onPress={handleShare}
+              activeOpacity={0.7}
+            >
+              <Icon name="share-outline" size={20} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
 
           {/* Image Dots */}
           {room.images.length > 1 && (
@@ -543,6 +640,9 @@ export default function RoomDetailScreen({ route, navigation }: any) {
 
       {/* Image Gallery Modal */}
       {renderImageGallery()}
+
+      {/* Login Required Modal */}
+      {renderLoginModal()}
     </View>
   );
 }
@@ -573,6 +673,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
     ...Theme.shadows.sm,
+  },
+  topRightActions: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    flexDirection: 'row',
+    gap: 8,
+    zIndex: 10,
+  },
+  topActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadows.sm,
+  },
+  topActionBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   imageDots: {
     position: 'absolute',
@@ -816,4 +936,76 @@ const styles = StyleSheet.create({
   emptyReviewsText: { fontSize: 13, color: Colors.textTertiary, textAlign: 'center', paddingVertical: 12 },
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   errorText: { fontSize: 17, color: Colors.textSecondary, marginBottom: 16 },
+
+  loginModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.lg,
+  },
+  loginModalContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: Theme.borderRadius.xl,
+    padding: Theme.spacing.lg,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    ...Theme.shadows.lg,
+  },
+  loginModalIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.errorLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  loginModalTitle: {
+    fontSize: Theme.fontSize.xl,
+    fontWeight: Theme.fontWeight.bold,
+    color: Colors.textPrimary,
+    marginBottom: Theme.spacing.sm,
+  },
+  loginModalMessage: {
+    fontSize: Theme.fontSize.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Theme.spacing.lg,
+  },
+  loginModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  loginModalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Theme.borderRadius.lg,
+    backgroundColor: Colors.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginModalCancelText: {
+    fontSize: Theme.fontSize.md,
+    fontWeight: Theme.fontWeight.semibold,
+    color: Colors.textSecondary,
+  },
+  loginModalLoginButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Theme.borderRadius.lg,
+    backgroundColor: Colors.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Theme.shadows.sm,
+  },
+  loginModalLoginText: {
+    fontSize: Theme.fontSize.md,
+    fontWeight: Theme.fontWeight.semibold,
+    color: Colors.white,
+  },
 });

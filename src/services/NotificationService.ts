@@ -4,7 +4,7 @@
  */
 
 import messaging from '@react-native-firebase/messaging';
-import { Platform, PermissionsAndroid, NativeModules } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { api } from '../api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Toast } from '../components/Toast';
@@ -13,31 +13,15 @@ import { navigationRef } from '../navigation/AppNavigator';
 const SETTINGS_KEY = 'NOTIFICATION_SETTINGS';
 
 /**
- * Create Android notification channel (required for API 26+).
- * Uses the native NotificationManager via React Native bridge.
+ * Ensure Android notification channel exists (API 26+).
+ * FCM auto-creates the "default" channel on first notification delivery,
+ * which matches the channelId our backend sends. This function serves as
+ * a future hook if custom channels are needed via notifee or a native module.
  */
 function createAndroidNotificationChannel() {
   if (Platform.OS !== 'android') return;
-  
-  try {
-    // Firebase messaging on Android auto-creates a default channel in newer versions,
-    // but we explicitly ensure one exists with our desired settings.
-    const channelConfig = {
-      channelId: 'default',
-      channelName: 'GoWaay Notifications',
-      channelDescription: 'Booking updates, messages, and alerts',
-      importance: 4, // IMPORTANCE_HIGH
-      vibrate: true,
-    };
-
-    // @react-native-firebase/messaging creates the default channel automatically.
-    // For extra channels, firebase.messaging().android?.createChannel() can be used
-    // if the firebase messaging package version supports it.
-    // The 'default' channel referenced by our backend is auto-created by FCM on first notification.
-    console.log('✅ Android notification channel ensured:', channelConfig.channelId);
-  } catch (error) {
-    console.warn('⚠️ Could not create notification channel:', error);
-  }
+  // The 'default' channel is auto-created by @react-native-firebase/messaging
+  // on first push delivery with high importance and default sound.
 }
 
 class NotificationService {
@@ -50,6 +34,13 @@ class NotificationService {
    */
   async initialize() {
     try {
+      // Respect user's in-app push notification setting
+      const pushEnabled = await this.arePushNotificationsEnabled();
+      if (!pushEnabled) {
+        console.log('ℹ️ Push notifications disabled by user in settings');
+        return false;
+      }
+
       // Ensure Android notification channel exists (required for API 26+)
       createAndroidNotificationChannel();
 
@@ -163,10 +154,8 @@ class NotificationService {
       this.handleForegroundNotification(remoteMessage);
     });
 
-    // Handle notifications when app is in background
-    messaging().setBackgroundMessageHandler(async remoteMessage => {
-      console.log('📩 Background notification:', remoteMessage);
-    });
+    // Background handler is registered in index.js (top-level) for reliable
+    // headless JS execution when the app is killed or in background.
 
     // Handle notification opened (user tapped on notification)
     messaging().onNotificationOpenedApp(remoteMessage => {
@@ -207,17 +196,24 @@ class NotificationService {
       if (
         data?.type === 'payment_success' ||
         data?.type === 'booking_approved' ||
-        data?.type === 'admin_booking_confirmed'
+        data?.type === 'admin_booking_confirmed' ||
+        data?.type === 'host_approved'
       ) {
         toastType = 'success';
-      } else if (data?.type === 'booking_rejected' || data?.type === 'payment_failed') {
+      } else if (
+        data?.type === 'booking_rejected' ||
+        data?.type === 'payment_failed' ||
+        data?.type === 'host_rejected'
+      ) {
         toastType = 'error';
       } else if (data?.type === 'booking_cancelled') {
         toastType = 'warning';
       } else if (
         data?.type === 'admin_host_application' ||
         data?.type === 'admin_room_listing' ||
-        data?.type === 'admin_booking_request'
+        data?.type === 'admin_booking_request' ||
+        data?.type === 'new_review' ||
+        data?.type === 'booking_request'
       ) {
         toastType = 'info';
       }
@@ -269,7 +265,13 @@ class NotificationService {
           (navigationRef as any).navigate('Chat', { threadId: data.threadId });
         }
         break;
-      // Admin notification types — navigate to relevant admin management screen
+      case 'host_approved':
+      case 'host_rejected':
+        (navigationRef as any).navigate('MainTabs', { screen: 'Profile' });
+        break;
+      case 'new_review':
+        (navigationRef as any).navigate('MainTabs', { screen: 'Notifications' });
+        break;
       case 'admin_host_application':
         (navigationRef as any).navigate('AdminHosts');
         break;
@@ -285,7 +287,6 @@ class NotificationService {
         }
         break;
       default:
-        // Navigate to notifications list for unknown types
         (navigationRef as any).navigate('MainTabs', { screen: 'Notifications' });
         break;
     }

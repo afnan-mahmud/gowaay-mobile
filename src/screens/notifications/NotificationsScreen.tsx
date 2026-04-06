@@ -24,7 +24,7 @@ import { getErrorMessage } from '../../utils/errorMessages';
 
 interface Notification {
   _id: string;
-  type: 'booking_request' | 'booking_approved' | 'booking_rejected' | 'booking_cancelled' | 'message' | 'payment_success' | 'payment_failed' | 'review' | 'system';
+  type: 'booking_request' | 'booking_approved' | 'booking_rejected' | 'booking_cancelled' | 'message' | 'payment_success' | 'payment_failed' | 'review' | 'new_review' | 'host_approved' | 'host_rejected' | 'system';
   title: string;
   body: string;
   data?: {
@@ -179,6 +179,12 @@ export default function NotificationsScreen({ navigation }: any) {
           navigation.navigate('Chat', { threadId: data.threadId });
         }
         break;
+      case 'host_approved':
+      case 'host_rejected':
+        navigation.navigate('Profile');
+        break;
+      case 'new_review':
+        break;
       // Admin notification types — navigate to relevant admin management screen
       case 'system':
         if (data.type === 'admin_host_application' || data.hostId) {
@@ -197,7 +203,6 @@ export default function NotificationsScreen({ navigation }: any) {
         }
         break;
       default:
-        // For unrecognised types, just mark as read (no navigation)
         break;
     }
   };
@@ -235,7 +240,12 @@ export default function NotificationsScreen({ navigation }: any) {
       case 'payment_failed':
         return { name: 'warning-outline', color: Colors.warning };
       case 'review':
+      case 'new_review':
         return { name: 'star-outline', color: '#FFC107' };
+      case 'host_approved':
+        return { name: 'checkmark-circle', color: Colors.success };
+      case 'host_rejected':
+        return { name: 'close-circle', color: Colors.error };
       case 'system':
         return { name: 'shield-outline', color: Colors.brand };
       default:

@@ -43,7 +43,7 @@ export default function GuestSelectionScreen({ navigation, route }: any) {
       });
     } else {
       // Normal flow - navigate to search results
-      navigation.navigate('Search', {
+      navigation.navigate('SearchScreen', {
         location,
         checkIn,
         checkOut,

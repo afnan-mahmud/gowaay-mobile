@@ -49,6 +49,7 @@ interface Booking {
     displayName: string;
     phone?: string;
     locationMapUrl?: string;
+    locationName?: string;
   };
   userId: {
     _id: string;
@@ -60,6 +61,12 @@ interface Booking {
   checkOut: string;
   guests: number;
   amountTk: number;
+  nights?: number;
+  basePricePerNightTk?: number;
+  commissionPerNightTk?: number;
+  couponCode?: string;
+  couponDiscountTk?: number;
+  originalAmountTk?: number;
   status: string;
   paymentStatus: string;
   hasReview?: boolean;
@@ -74,7 +81,8 @@ export default function BookingDetailScreen({ route, navigation }: any) {
   const [error, setError] = useState<string | null>(null);
   
   const isHost = user?.role === 'host';
-  const isGuest = user?.role === 'guest' || (!isHost && user?.role !== 'admin');
+  const isAdmin = user?.role === 'admin';
+  const isGuest = user?.role === 'guest' || (!isHost && !isAdmin);
 
   useEffect(() => {
     loadBooking();
@@ -316,23 +324,37 @@ export default function BookingDetailScreen({ route, navigation }: any) {
             </View>
           </Card>
 
-          {/* Price Details */}
-          <Card>
-            <Text style={styles.sectionTitle}>Price Breakdown</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Total Amount</Text>
-              <Text style={styles.priceValue}>৳{booking.amountTk.toLocaleString()}</Text>
-            </View>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Price per night</Text>
-              <Text style={styles.priceSubvalue}>
-                ৳{Math.round(booking.amountTk / calculateNights()).toLocaleString()}
-              </Text>
-            </View>
-          </Card>
+          {/* Guest Information - Show for host (when paid) and admin (always) */}
+          {((isHost && booking.paymentStatus === 'paid') || isAdmin) && booking.userId && (
+            <Card>
+              <Text style={styles.sectionTitle}>Guest Information</Text>
+              <View style={styles.guestRow}>
+                <View style={styles.guestAvatar}>
+                  <Text style={styles.guestAvatarText}>
+                    {booking.userId.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.guestDetails}>
+                  <Text style={styles.guestName}>{booking.userId.name}</Text>
+                  {booking.userId.email && (
+                    <View style={styles.phoneRow}>
+                      <Icon name="mail-outline" size={13} color={Colors.textSecondary} />
+                      <Text style={styles.guestEmail}>{booking.userId.email}</Text>
+                    </View>
+                  )}
+                  {booking.userId.phone && (
+                    <View style={styles.phoneRow}>
+                      <Icon name="call-outline" size={13} color={Colors.textSecondary} />
+                      <Text style={styles.guestPhone}>{booking.userId.phone}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </Card>
+          )}
 
-          {/* Host Info - Only show when payment is paid */}
-          {booking.paymentStatus === 'paid' && (
+          {/* Host Info - Show when paid (for guests/hosts) or always for admin */}
+          {(booking.paymentStatus === 'paid' || isAdmin) && (
           <Card>
             <Text style={styles.sectionTitle}>Host Information</Text>
             <View style={styles.hostRow}>
@@ -357,7 +379,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
                   <View style={styles.propertyRow}>
                     <Icon name="location-outline" size={14} color={Colors.textSecondary} style={{ marginRight: 4 }} />
                     <Text style={styles.propertyLabel}>Location:</Text>
-                    <Text style={styles.propertyValue}>{booking.roomId.locationName}</Text>
+                    <Text style={styles.propertyValue}>{booking.hostId.locationName || booking.roomId.locationName}</Text>
                   </View>
                   {booking.roomId.address && (
                   <View style={styles.propertyRow}>
@@ -387,6 +409,7 @@ export default function BookingDetailScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               )}
 
+            {!isAdmin && (
             <Button
               title="Contact Host"
               onPress={handleContactHost}
@@ -394,37 +417,66 @@ export default function BookingDetailScreen({ route, navigation }: any) {
               fullWidth
               style={styles.hostButton}
             />
+            )}
           </Card>
           )}
 
-          {/* Guest Information - Only show for host when payment is paid */}
-          {isHost && booking.paymentStatus === 'paid' && booking.userId && (
-            <Card>
-              <Text style={styles.sectionTitle}>Guest Information</Text>
-              <View style={styles.guestRow}>
-                <View style={styles.guestAvatar}>
-                  <Text style={styles.guestAvatarText}>
-                    {booking.userId.name.charAt(0).toUpperCase()}
+          {/* Price Breakdown */}
+          <Card>
+            <Text style={styles.sectionTitle}>Price Breakdown</Text>
+            {isAdmin && booking.basePricePerNightTk ? (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Base price per night</Text>
+                  <Text style={styles.priceSubvalue}>৳{booking.basePricePerNightTk.toLocaleString()}</Text>
+                </View>
+                {booking.commissionPerNightTk != null && (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Commission per night</Text>
+                    <Text style={styles.priceSubvalue}>৳{booking.commissionPerNightTk.toLocaleString()}</Text>
+                  </View>
+                )}
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Nights</Text>
+                  <Text style={styles.priceSubvalue}>{booking.nights || calculateNights()}</Text>
+                </View>
+                {booking.originalAmountTk != null && booking.couponDiscountTk != null && booking.couponDiscountTk > 0 && (
+                  <>
+                    <View style={[styles.priceRow, { marginTop: 4 }]}>
+                      <Text style={styles.priceLabel}>Subtotal</Text>
+                      <Text style={styles.priceSubvalue}>৳{booking.originalAmountTk.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.priceRow}>
+                      <Text style={[styles.priceLabel, { color: Colors.success }]}>
+                        Coupon ({booking.couponCode})
+                      </Text>
+                      <Text style={[styles.priceSubvalue, { color: Colors.success }]}>
+                        -৳{booking.couponDiscountTk.toLocaleString()}
+                      </Text>
+                    </View>
+                  </>
+                )}
+                <View style={[styles.priceDivider]} />
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceTotalLabel}>Total Amount</Text>
+                  <Text style={styles.priceValue}>৳{booking.amountTk.toLocaleString()}</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Total Amount</Text>
+                  <Text style={styles.priceValue}>৳{booking.amountTk.toLocaleString()}</Text>
+                </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Price per night</Text>
+                  <Text style={styles.priceSubvalue}>
+                    ৳{Math.round(booking.amountTk / calculateNights()).toLocaleString()}
                   </Text>
                 </View>
-                <View style={styles.guestDetails}>
-                  <Text style={styles.guestName}>{booking.userId.name}</Text>
-                  {booking.userId.email && (
-                    <View style={styles.phoneRow}>
-                      <Icon name="mail-outline" size={13} color={Colors.textSecondary} />
-                      <Text style={styles.guestEmail}>{booking.userId.email}</Text>
-                    </View>
-                  )}
-                  {booking.userId.phone && (
-                    <View style={styles.phoneRow}>
-                      <Icon name="call-outline" size={13} color={Colors.textSecondary} />
-                      <Text style={styles.guestPhone}>{booking.userId.phone}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </Card>
-          )}
+              </>
+            )}
+          </Card>
 
           {/* Cancellation Policy Info */}
           {isGuest && canCancel() && (
@@ -498,6 +550,8 @@ const styles = StyleSheet.create({
   priceLabel: { fontSize: 14, color: Colors.textSecondary },
   priceValue: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary },
   priceSubvalue: { fontSize: 13, color: Colors.textSecondary },
+  priceTotalLabel: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary },
+  priceDivider: { height: 1, backgroundColor: Colors.gray100, marginVertical: 8 },
   hostRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   hostAvatar: {
     width: 48, height: 48, borderRadius: 16, backgroundColor: Colors.brand,

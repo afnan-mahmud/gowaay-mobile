@@ -18,7 +18,7 @@ import { Toast } from '../../components/Toast';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { IMG_BASE_URL } from '../../constants/config';
-import api from '../../api/client';
+import { api } from '../../api/client';
 import { getErrorMessage } from '../../utils/errorMessages';
 
 interface Room {
@@ -46,9 +46,9 @@ export default function FavoritesScreen({ navigation }: any) {
 
   const loadFavorites = useCallback(async () => {
     try {
-      const response = await api.get('/favorites');
+      const response = await api.favorites.list();
       if (response.success && response.data) {
-        setFavorites(response.data);
+        setFavorites(response.data as Room[]);
       }
     } catch (error) {
       console.error('Failed to load favorites:', error);
@@ -73,7 +73,7 @@ export default function FavoritesScreen({ navigation }: any) {
 
   const handleRemoveFavorite = async (roomId: string) => {
     try {
-      await api.delete(`/favorites/${roomId}`);
+      await api.favorites.remove(roomId);
       setFavorites(favorites.filter(room => room._id !== roomId));
     } catch (error) {
       console.error('Failed to remove favorite:', error);

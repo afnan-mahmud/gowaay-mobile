@@ -11,6 +11,7 @@ import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import CachedImage from '../../components/CachedImage';
 import { IMG_BASE_URL } from '../../constants/config';
+import DeviceInfo from 'react-native-device-info';
 
 const getImageUrl = (imageUrl: string) => {
   if (!imageUrl) return '';
@@ -18,45 +19,59 @@ const getImageUrl = (imageUrl: string) => {
   return `${IMG_BASE_URL}${imageUrl}`;
 };
 
-const MENU_GROUPS = (user: any, navigation: any) => [
-  {
-    title: 'Account',
-    items: [
-      { icon: 'person-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: 'Edit Profile', sub: 'Update your personal info', onPress: () => navigation.navigate('EditProfile') },
-      { icon: 'heart-outline', iconBg: '#FFF1F2', iconColor: Colors.brand, title: 'Favorites', sub: 'Your saved properties', onPress: () => navigation.navigate('Favorites') },
-      { icon: 'star-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'My Reviews', sub: 'Reviews you have written', onPress: () => navigation.navigate('MyReviews') },
-    ],
-  },
-  {
-    title: 'Activity',
-    items: [
-      { icon: 'calendar-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: user?.role === 'host' ? 'Reservations' : 'My Bookings', sub: user?.role === 'host' ? 'View your reservations' : 'View your booking history', onPress: () => navigation.navigate(user?.role === 'host' ? 'HostReservations' : 'Bookings') },
-      { icon: 'chatbubble-outline', iconBg: '#ECFDF5', iconColor: '#059669', title: 'Messages', sub: 'Chat with hosts', onPress: () => navigation.navigate('Messages') },
-    ],
-  },
-  ...(user?.role === 'host' ? [{
-    title: 'Host',
-    items: [
-      { icon: 'business-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'Host Dashboard', sub: 'Manage your properties', onPress: () => navigation.navigate('Dashboard') },
-      { icon: 'home-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'My Listings', sub: 'Manage your listings', onPress: () => navigation.navigate('HostListings') },
-      { icon: 'id-card-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'Host Profile', sub: 'Edit host information', onPress: () => navigation.navigate('HostProfileEdit') },
-    ],
-  }] : []),
-  ...(user?.role === 'admin' ? [{
-    title: 'Admin',
-    items: [
-      { icon: 'card-outline', iconBg: '#F3E8FF', iconColor: '#8B5CF6', title: 'Partial Payments', sub: 'View & track partial payments', onPress: () => navigation.navigate('AdminPartialPayments') },
-    ],
-  }] : []),
-  {
-    title: 'More',
-    items: [
-      { icon: 'settings-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'Settings', sub: 'App preferences', onPress: () => navigation.navigate('Settings') },
-      { icon: 'help-circle-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'Help Center', sub: 'Get support', onPress: () => navigation.navigate('HelpCenter') },
-      { icon: 'information-circle-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'About', sub: 'About GoWaay', onPress: () => navigation.navigate('About') },
-    ],
-  },
-];
+const MENU_GROUPS = (user: any, navigation: any) => {
+  const isAdmin = user?.role === 'admin';
+  const isHost = user?.role === 'host';
+
+  const accountItems: any[] = [
+    { icon: 'person-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: 'Edit Profile', sub: 'Update your personal info', onPress: () => navigation.navigate('EditProfile') },
+  ];
+  if (!isAdmin && !isHost) {
+    accountItems.push({ icon: 'heart-outline', iconBg: '#FFF1F2', iconColor: Colors.brand, title: 'Favorites', sub: 'Your saved properties', onPress: () => navigation.navigate('Favorites') });
+  }
+  if (isAdmin) {
+    accountItems.push({ icon: 'star-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'All Reviews', sub: 'Manage guest reviews', onPress: () => navigation.navigate('AdminReviewsList') });
+  } else {
+    accountItems.push({ icon: 'star-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'My Reviews', sub: 'Reviews you have written', onPress: () => navigation.navigate('MyReviews') });
+  }
+
+  const bookingsNav = isAdmin ? 'AdminBookings' : isHost ? 'HostReservations' : 'Bookings';
+  const bookingsTitle = isAdmin ? 'All Bookings' : isHost ? 'Reservations' : 'My Bookings';
+  const bookingsSub = isAdmin ? 'Manage all bookings' : isHost ? 'View your reservations' : 'View your booking history';
+
+  return [
+    { title: 'Account', items: accountItems },
+    {
+      title: 'Activity',
+      items: [
+        { icon: 'calendar-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: bookingsTitle, sub: bookingsSub, onPress: () => navigation.navigate(bookingsNav) },
+        { icon: 'chatbubble-outline', iconBg: '#ECFDF5', iconColor: '#059669', title: 'Messages', sub: 'Chat with hosts', onPress: () => navigation.navigate('Messages') },
+      ],
+    },
+    ...(isHost ? [{
+      title: 'Host',
+      items: [
+        { icon: 'business-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'Host Dashboard', sub: 'Manage your properties', onPress: () => navigation.navigate('Dashboard') },
+        { icon: 'home-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'My Listings', sub: 'Manage your listings', onPress: () => navigation.navigate('HostListings') },
+        { icon: 'id-card-outline', iconBg: '#FFFBEB', iconColor: '#D97706', title: 'Host Profile', sub: 'Edit host information', onPress: () => navigation.navigate('HostProfileEdit') },
+      ],
+    }] : []),
+    ...(isAdmin ? [{
+      title: 'Admin',
+      items: [
+        { icon: 'card-outline', iconBg: '#F3E8FF', iconColor: '#8B5CF6', title: 'Partial Payments', sub: 'View & track partial payments', onPress: () => navigation.navigate('AdminPartialPayments') },
+      ],
+    }] : []),
+    {
+      title: 'More',
+      items: [
+        { icon: 'settings-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'Settings', sub: 'App preferences', onPress: () => navigation.navigate('Settings') },
+        { icon: 'help-circle-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'Help Center', sub: 'Get support', onPress: () => navigation.navigate('HelpCenter') },
+        { icon: 'information-circle-outline', iconBg: Colors.gray100, iconColor: Colors.gray600, title: 'About', sub: 'About GoWaay', onPress: () => navigation.navigate('About') },
+      ],
+    },
+  ];
+};
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, logout } = useAuth();
@@ -90,9 +105,9 @@ export default function ProfileScreen({ navigation }: any) {
           )}
           </View>
           {user?.role && (
-            <View style={[S.roleBadge, user.role === 'host' && S.roleBadgeHost]}>
-              <Icon name={user.role === 'host' ? 'business-outline' : 'person-outline'} size={11} color={Colors.white} />
-              <Text style={S.roleBadgeText}>{user.role === 'host' ? 'Host' : 'Guest'}</Text>
+            <View style={[S.roleBadge, user.role === 'host' && S.roleBadgeHost, user.role === 'admin' && S.roleBadgeAdmin]}>
+              <Icon name={user.role === 'admin' ? 'shield-checkmark-outline' : user.role === 'host' ? 'business-outline' : 'person-outline'} size={11} color={Colors.white} />
+              <Text style={S.roleBadgeText}>{user.role === 'admin' ? 'Admin' : user.role === 'host' ? 'Host' : 'Guest'}</Text>
             </View>
           )}
         </View>
@@ -109,9 +124,9 @@ export default function ProfileScreen({ navigation }: any) {
       {/* ── Stats row ── */}
       <View style={S.statsRow}>
         {[
-          { label: 'Bookings', icon: 'calendar-outline', nav: user?.role === 'host' ? 'HostReservations' : 'Bookings' },
-          { label: 'Favorites', icon: 'heart-outline', nav: 'Favorites' },
-          { label: 'Reviews', icon: 'star-outline', nav: 'MyReviews' },
+          { label: 'Bookings', icon: 'calendar-outline', nav: user?.role === 'admin' ? 'AdminBookings' : user?.role === 'host' ? 'HostReservations' : 'Bookings' },
+          ...(user?.role !== 'admin' && user?.role !== 'host' ? [{ label: 'Favorites', icon: 'heart-outline', nav: 'Favorites' }] : []),
+          { label: 'Reviews', icon: 'star-outline', nav: user?.role === 'admin' ? 'AdminReviewsList' : 'MyReviews' },
         ].map((s, i) => (
           <TouchableOpacity key={i} style={S.statCard} onPress={() => navigation.navigate(s.nav)} activeOpacity={0.7}>
             <Icon name={s.icon} size={20} color={Colors.brand} />
@@ -156,7 +171,7 @@ export default function ProfileScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <Text style={S.version}>GoWaay v1.0.0</Text>
+      <Text style={S.version}>GoWaay v{DeviceInfo.getVersion()}</Text>
       <View style={{ height: 32 }} />
     </ScrollView>
   );
@@ -191,6 +206,7 @@ const S = StyleSheet.create({
     borderRadius: 10, borderWidth: 2, borderColor: Colors.brand,
   },
   roleBadgeHost: { backgroundColor: '#D97706' },
+  roleBadgeAdmin: { backgroundColor: '#8B5CF6' },
   roleBadgeText: { fontSize: 10, fontWeight: Theme.fontWeight.bold, color: Colors.white },
   name: { fontSize: 22, fontWeight: Theme.fontWeight.bold, color: Colors.white, marginBottom: 4 },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },

@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -15,11 +16,13 @@ import { ToastProvider } from './src/components/Toast';
 export default function App() {
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <AppNavigator />
-        </AuthProvider>
-      </ToastProvider>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AppNavigator />
+          </AuthProvider>
+        </ToastProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

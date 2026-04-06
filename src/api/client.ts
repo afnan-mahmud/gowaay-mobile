@@ -554,6 +554,14 @@ export const api = {
       apiClient.get<T>('/reviews/host', params),
   },
 
+  // Favorites
+  favorites: {
+    list: <T = any>() => apiClient.get<T>('/favorites'),
+    check: <T = any>(roomId: string) => apiClient.get<T>(`/favorites/check/${roomId}`),
+    add: (roomId: string) => apiClient.post(`/favorites/${roomId}`),
+    remove: (roomId: string) => apiClient.delete(`/favorites/${roomId}`),
+  },
+
   // Payouts
   payouts: {
     getMine: <T = any>(params?: { page?: number; limit?: number; status?: string }) =>
@@ -605,6 +613,8 @@ export const api = {
       apiClient.get<T>('/admin/reviews', params),
     deleteReview: (id: string) => apiClient.delete(`/admin/reviews/${id}`),
     restoreReview: (id: string) => apiClient.post(`/admin/reviews/${id}/restore`),
+    editReview: (id: string, data: { rating?: number; comment?: string }) =>
+      apiClient.put(`/admin/reviews/${id}`, data),
     whatsappChats: <T = any>(params?: { page?: number; limit?: number }) =>
       apiClient.get<T>('/admin/whatsapp-chats', params),
     whatsappChatDetail: <T = any>(phone: string, params?: { page?: number; limit?: number }) =>

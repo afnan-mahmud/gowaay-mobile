@@ -1,65 +1,31 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
-
 buildscript {
     ext {
         buildToolsVersion = "35.0.0"
-        minSdkVersion = 23
+        minSdkVersion = 24
         compileSdkVersion = 35
         targetSdkVersion = 35
-        kotlinVersion = "1.9.22"
-
-        // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
-        ndkVersion = "23.1.7779620"
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.0.21"
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.1.1")
+        classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath('com.google.gms:google-services:4.4.0')
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+        classpath("com.google.gms:google-services:4.4.0")
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+apply plugin: "com.facebook.react.rootproject"
 
-// Fix for AGP 8+ compatibility with third-party libraries:
-// 1. Injects namespace from AndroidManifest.xml for libraries that don't declare it
-// 2. Enables buildConfig feature for libraries that use buildConfigField
-// 3. Aligns Kotlin JVM target with Java for all modules
-subprojects { subproject ->
-    afterEvaluate {
-        if (subproject.plugins.hasPlugin('com.android.library')) {
-            def androidExt = subproject.extensions.findByName('android')
-            if (androidExt != null) {
-                // Fix missing namespace for AGP 8+
-                if (androidExt.namespace == null || androidExt.namespace.isEmpty()) {
-                    def manifestFile = file("${subproject.projectDir}/src/main/AndroidManifest.xml")
-                    if (manifestFile.exists()) {
-                        def matcher = manifestFile.text =~ /package\s*=\s*"([^"]+)"/
-                        if (matcher.find()) {
-                            androidExt.namespace = matcher.group(1)
-                        }
-                    }
-                }
-                // Enable buildConfig for AGP 8+
-                androidExt.buildFeatures.buildConfig = true
-            }
-        }
-        // Align Kotlin JVM target with Java compile target for all modules
-        if (subproject.plugins.hasPlugin('org.jetbrains.kotlin.android')) {
-            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                kotlinOptions {
-                    jvmTarget = "11"
-                }
-            }
+subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force "androidx.core:core:1.15.0"
+            force "androidx.core:core-ktx:1.15.0"
         }
     }
 }

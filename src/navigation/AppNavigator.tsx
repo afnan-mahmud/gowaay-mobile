@@ -12,6 +12,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { NavigationContainer, NavigationState, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/Loading';
@@ -80,6 +81,7 @@ import AdminWhatsAppChatsScreen from '../screens/admin/AdminWhatsAppChatsScreen'
 import AdminChatScreen from '../screens/admin/AdminChatScreen';
 import AdminPartialPaymentsScreen from '../screens/admin/AdminPartialPaymentsScreen';
 import AdminEditRoomScreen from '../screens/admin/AdminEditRoomScreen';
+import AdminReviewsListScreen from '../screens/admin/AdminReviewsListScreen';
 
 import { api } from '../api/client';
 import { withAuth } from '../components/withAuth';
@@ -116,6 +118,7 @@ const ProtectedAdminWhatsAppChats = withAuth(AdminWhatsAppChatsScreen, { role: '
 const ProtectedAdminChat = withAuth(AdminChatScreen, { role: 'admin' });
 const ProtectedAdminPartialPayments = withAuth(AdminPartialPaymentsScreen, { role: 'admin' });
 const ProtectedAdminEditRoom = withAuth(AdminEditRoomScreen, { role: 'admin' });
+const ProtectedAdminReviewsList = withAuth(AdminReviewsListScreen, { role: 'admin' });
 
 // Tab Bar Icon Component
 const TabBarIcon = ({ name, color, size }: { name: string; color: string; size: number }) => (
@@ -153,6 +156,9 @@ function useUnreadNotificationCount() {
 // ─── Guest Tabs (unauthenticated users) ──────────────────────────────────────
 // Guests can browse Home, Search, and access Login
 function GuestBrowseTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -161,9 +167,9 @@ function GuestBrowseTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 60,
+          height: 52 + bottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: Theme.fontSize.xs,
@@ -213,6 +219,8 @@ function GuestBrowseTabs() {
 // ─── Authenticated Guest Tabs ────────────────────────────────────────────────
 function AuthenticatedGuestTabs() {
   const { count: unreadCount } = useUnreadNotificationCount();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <Tab.Navigator
@@ -222,9 +230,9 @@ function AuthenticatedGuestTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 60,
+          height: 52 + bottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: Theme.fontSize.xs,
@@ -287,6 +295,8 @@ function AuthenticatedGuestTabs() {
 // ─── Host Tab Navigator ──────────────────────────────────────────────────────
 function HostTabs() {
   const { count: unreadCount } = useUnreadNotificationCount();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <Tab.Navigator
@@ -296,9 +306,9 @@ function HostTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 60,
+          height: 52 + bottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: Theme.fontSize.xs,
@@ -362,6 +372,8 @@ function HostTabs() {
 // ─── Admin Tab Navigator ──────────────────────────────────────────────────────
 function AdminTabs() {
   const { count: unreadCount } = useUnreadNotificationCount();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <Tab.Navigator
@@ -371,9 +383,9 @@ function AdminTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 60,
+          height: 52 + bottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: Theme.fontSize.xs,
@@ -441,6 +453,8 @@ function AdminTabs() {
 // ─── Moderator Tab Navigator ────────────────────────────────────────────────
 function ModeratorTabs() {
   const { count: unreadCount } = useUnreadNotificationCount();
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
 
   return (
     <Tab.Navigator
@@ -450,9 +464,9 @@ function ModeratorTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          paddingBottom: 8,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
-          height: 60,
+          height: 52 + bottomPadding,
         },
         tabBarLabelStyle: {
           fontSize: Theme.fontSize.xs,
@@ -843,6 +857,11 @@ export default function AppNavigator() {
           name="AdminPartialPayments" 
           component={ProtectedAdminPartialPayments}
           options={{ title: 'Partial Payments', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="AdminReviewsList" 
+          component={ProtectedAdminReviewsList}
+          options={{ title: 'All Reviews' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
