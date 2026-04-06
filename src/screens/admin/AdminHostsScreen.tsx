@@ -15,6 +15,8 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { api, ApiResponse } from '../../api/client';
 import Icon from '../../components/Icon';
@@ -72,6 +74,10 @@ export default function AdminHostsScreen({ navigation }: any) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [rejectDialogVisible, setRejectDialogVisible] = useState(false);
+  const [rejectingHost, setRejectingHost] = useState<HostItem | null>(null);
+  const [upcomingBookingsCount, setUpcomingBookingsCount] = useState(0);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const loadHosts = useCallback(async (reset = true) => {
     try {
@@ -145,41 +151,29 @@ export default function AdminHostsScreen({ navigation }: any) {
     fetchMore();
   }, [page, loadingMore, filter]);
 
-  const handleApprove = async (id: string) => {
-    setActionId(id);
-    try {
-      const response = await api.admin.approveHost(id, {});
-      if (response.success) {
-        Toast.show({ type: 'success', title: 'Approved', message: 'Host approved successfully' });
-        loadHosts(true);
-      } else {
-        Toast.show({ type: 'error', title: 'Failed', message: response.message || 'Could not approve host' });
-      }
-    } catch (err: any) {
-      Toast.show({ type: 'error', title: 'Failed', message: getErrorMessage(err) });
-    } finally {
-      setActionId(null);
-    }
-  };
-
-  const handleReject = (id: string) => {
+  const handleApprove = async (host: HostItem) => {
+    const label = host.status === 'rejected' ? 'Re-Approve' : 'Approve';
     Alert.alert(
-      'Reject Host',
-      'Are you sure you want to reject this host application?',
+      `${label} Host`,
+      `Are you sure you want to ${label.toLowerCase()} "${host.displayName || 'this host'}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reject',
-          style: 'destructive',
+          text: label,
           onPress: async () => {
-            setActionId(id);
+            setActionId(host._id);
             try {
-              const response = await api.admin.rejectHost(id, {});
+              const response = await api.admin.approveHost(host._id, { status: 'approved' });
               if (response.success) {
-                Toast.show({ type: 'success', title: 'Rejected', message: 'Host application rejected' });
+                const data = response.data as any;
+                const roomsRestored = data?.roomsRestored || 0;
+                const msg = data?.wasRejected
+                  ? `Host re-approved. ${roomsRestored} room(s) restored.`
+                  : 'Host approved successfully';
+                Toast.show({ type: 'success', title: 'Approved', message: msg });
                 loadHosts(true);
               } else {
-                Toast.show({ type: 'error', title: 'Failed', message: response.message || 'Could not reject host' });
+                Toast.show({ type: 'error', title: 'Failed', message: response.message || 'Could not approve host' });
               }
             } catch (err: any) {
               Toast.show({ type: 'error', title: 'Failed', message: getErrorMessage(err) });
@@ -190,6 +184,62 @@ export default function AdminHostsScreen({ navigation }: any) {
         },
       ]
     );
+  };
+
+  const handleRejectClick = async (host: HostItem) => {
+    setRejectingHost(host);
+    setRejectLoading(true);
+    setRejectDialogVisible(true);
+
+    try {
+      const response = await api.admin.getHostBookingsCount(host._id);
+      if (response.success && response.data) {
+        setUpcomingBookingsCount((response.data as any).upcomingBookingsCount || 0);
+      } else {
+        setUpcomingBookingsCount(0);
+      }
+    } catch {
+      setUpcomingBookingsCount(0);
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
+  const handleRejectConfirm = async (cancelBookings: boolean) => {
+    if (!rejectingHost) return;
+
+    setRejectLoading(true);
+    setActionId(rejectingHost._id);
+    try {
+      const response = await api.admin.rejectHost(rejectingHost._id, {
+        status: 'rejected',
+        cancelBookings,
+      });
+      if (response.success) {
+        setRejectDialogVisible(false);
+        setRejectingHost(null);
+
+        const data = response.data as any;
+        const msg = cancelBookings
+          ? `Host rejected. ${data?.roomsDelisted || 0} rooms delisted, ${data?.bookingsCancelled || 0} bookings cancelled.`
+          : `Host rejected. ${data?.roomsDelisted || 0} rooms delisted. Existing bookings kept.`;
+        Toast.show({ type: 'success', title: 'Rejected', message: msg });
+        loadHosts(true);
+      } else {
+        Toast.show({ type: 'error', title: 'Failed', message: response.message || 'Could not reject host' });
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', title: 'Failed', message: getErrorMessage(err) });
+    } finally {
+      setRejectLoading(false);
+      setActionId(null);
+    }
+  };
+
+  const dismissRejectDialog = () => {
+    if (rejectLoading) return;
+    setRejectDialogVisible(false);
+    setRejectingHost(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -241,24 +291,30 @@ export default function AdminHostsScreen({ navigation }: any) {
             <View style={[S.statusBadge, { backgroundColor: badge.backgroundColor }]}>
               <Text style={[S.statusText, { color: badge.color }]}>{item.status}</Text>
             </View>
-            {item.status === 'pending' && (
+            {(item.status === 'pending' || item.status === 'approved' || item.status === 'rejected') && (
               <View style={S.actionsRow}>
-                <TouchableOpacity
-                  style={[S.approveBtn, actionId === item._id && S.btnDisabled]}
-                  onPress={() => handleApprove(item._id)}
-                  disabled={!!actionId}
-                >
-                  <Icon name="checkmark-circle" size={16} color={Colors.white} />
-                  <Text style={S.actionBtnText}>Approve</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[S.rejectBtn, actionId === item._id && S.btnDisabled]}
-                  onPress={() => handleReject(item._id)}
-                  disabled={!!actionId}
-                >
-                  <Icon name="close-circle" size={16} color={Colors.white} />
-                  <Text style={S.actionBtnText}>Reject</Text>
-                </TouchableOpacity>
+                {(item.status === 'pending' || item.status === 'rejected') && (
+                  <TouchableOpacity
+                    style={[S.approveBtn, actionId === item._id && S.btnDisabled]}
+                    onPress={() => handleApprove(item)}
+                    disabled={!!actionId}
+                  >
+                    <Icon name="checkmark-circle" size={16} color={Colors.white} />
+                    <Text style={S.actionBtnText}>
+                      {item.status === 'rejected' ? 'Re-Approve' : 'Approve'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {item.status !== 'rejected' && (
+                  <TouchableOpacity
+                    style={[S.rejectBtn, actionId === item._id && S.btnDisabled]}
+                    onPress={() => handleRejectClick(item)}
+                    disabled={!!actionId}
+                  >
+                    <Icon name="close-circle" size={16} color={Colors.white} />
+                    <Text style={S.actionBtnText}>Reject</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -342,6 +398,97 @@ export default function AdminHostsScreen({ navigation }: any) {
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
       />
+
+      {/* Rejection Confirmation Modal */}
+      <Modal
+        visible={rejectDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissRejectDialog}
+      >
+        <TouchableOpacity
+          style={S.modalOverlay}
+          activeOpacity={1}
+          onPress={dismissRejectDialog}
+        >
+          <TouchableOpacity activeOpacity={1} style={S.modalCard}>
+            <View style={S.modalHeader}>
+              <Icon name="warning-outline" size={22} color={Colors.error} />
+              <Text style={S.modalTitle}>
+                Reject Host: {rejectingHost?.displayName || 'Unknown'}
+              </Text>
+            </View>
+            <Text style={S.modalDesc}>
+              This will revoke the host's access, delist all their rooms, and invalidate their session.
+            </Text>
+
+            {rejectLoading && !actionId ? (
+              <View style={S.modalLoaderWrap}>
+                <ActivityIndicator size="small" color={Colors.brand} />
+                <Text style={S.modalLoaderText}>Checking upcoming bookings...</Text>
+              </View>
+            ) : (
+              <>
+                {upcomingBookingsCount > 0 ? (
+                  <View style={S.bookingsWarningBox}>
+                    <Icon name="alert-circle-outline" size={18} color="#B45309" />
+                    <Text style={S.bookingsWarningText}>
+                      This host has {upcomingBookingsCount} upcoming booking{upcomingBookingsCount !== 1 ? 's' : ''}.
+                      You can choose to cancel them or keep them active.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={S.bookingsInfoBox}>
+                    <Text style={S.bookingsInfoText}>
+                      This host has no upcoming bookings. Rejecting will delist all rooms.
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={S.modalActions}>
+              <TouchableOpacity
+                style={S.modalCancelBtn}
+                onPress={dismissRejectDialog}
+                disabled={rejectLoading && !!actionId}
+              >
+                <Text style={S.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              {upcomingBookingsCount > 0 && (
+                <TouchableOpacity
+                  style={[S.modalKeepBtn, (rejectLoading && !!actionId) && S.btnDisabled]}
+                  onPress={() => handleRejectConfirm(false)}
+                  disabled={rejectLoading && !!actionId}
+                >
+                  {rejectLoading && actionId === rejectingHost?._id ? (
+                    <ActivityIndicator size="small" color={Colors.error} />
+                  ) : (
+                    <Text style={S.modalKeepText}>Reject — Keep Bookings</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[S.modalRejectBtn, (rejectLoading && !!actionId) && S.btnDisabled]}
+                onPress={() => handleRejectConfirm(upcomingBookingsCount > 0)}
+                disabled={rejectLoading && !!actionId}
+              >
+                {rejectLoading && actionId === rejectingHost?._id ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={S.modalRejectText}>
+                    {upcomingBookingsCount > 0
+                      ? 'Reject — Cancel All Bookings'
+                      : 'Confirm Reject'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -497,4 +644,117 @@ const S = StyleSheet.create({
 
   footerLoader: { paddingVertical: 16, alignItems: 'center' },
   footerLoaderText: { fontSize: 13, color: Colors.textSecondary },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 24,
+    ...Theme.shadows.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: Theme.fontWeight.bold,
+    color: Colors.error,
+    flex: 1,
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalLoaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 16,
+  },
+  modalLoaderText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  bookingsWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  bookingsWarningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 19,
+  },
+  bookingsInfoBox: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  bookingsInfoText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 19,
+  },
+  modalActions: {
+    gap: 10,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: Theme.fontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  modalKeepBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+  },
+  modalKeepText: {
+    fontSize: 15,
+    fontWeight: Theme.fontWeight.semibold,
+    color: Colors.error,
+  },
+  modalRejectBtn: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+  },
+  modalRejectText: {
+    fontSize: 15,
+    fontWeight: Theme.fontWeight.semibold,
+    color: Colors.white,
+  },
 });

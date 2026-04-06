@@ -4,10 +4,11 @@
  * Accessible by all admin levels (super_admin, admin, moderator).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
@@ -17,6 +18,7 @@ import {
   StatusBar,
   ScrollView,
   Clipboard,
+  ActivityIndicator,
 } from 'react-native';
 import { api } from '../../api/client';
 import Icon from '../../components/Icon';
@@ -68,38 +70,45 @@ export default function AdminPartialPaymentsScreen({ navigation }: any) {
   const [stats, setStats] = useState<StatsMap>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedPayment, setSelectedPayment] = useState<PartialPaymentItem | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pageLoading, setPageLoading] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadPayments = useCallback(async (reset = true) => {
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setSearchQuery(searchTerm.trim());
+    }, 500);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchTerm]);
+
+  const loadPayments = useCallback(async (targetPage = 1) => {
     try {
-      if (reset) {
-        setError(null);
-        setPage(1);
-        setHasMore(true);
-      }
-      const nextPage = reset ? 1 : page;
+      setError(null);
       const statusParam = filter === 'all' ? undefined : filter;
       const response = await api.admin.partialPayments({
-        page: nextPage,
+        page: targetPage,
         limit: 20,
         status: statusParam,
+        search: searchQuery || undefined,
       }) as any;
 
       if (response.success && response.data) {
         const d = response.data;
-        const newPayments = d.payments || [];
+        setPayments(d.payments || []);
         const pag = d.pagination;
-        setPayments(reset ? newPayments : (prev: PartialPaymentItem[]) => [...prev, ...newPayments]);
         setTotalCount(pag?.total || 0);
-        setHasMore(pag ? pag.page < pag.pages : false);
+        setTotalPages(pag?.pages || 1);
+        setPage(targetPage);
         if (d.stats) setStats(d.stats);
       } else {
         setError(response.message || 'Failed to load partial payments');
@@ -111,51 +120,33 @@ export default function AdminPartialPaymentsScreen({ navigation }: any) {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setLoadingMore(false);
+      setPageLoading(false);
     }
-  }, [filter, page]);
+  }, [filter, searchQuery]);
 
   useEffect(() => {
     setLoading(true);
-    loadPayments(true);
-  }, [filter]);
+    loadPayments(1);
+  }, [filter, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadPayments(true);
+    loadPayments(page);
   };
 
-  const loadMore = () => {
-    if (loadingMore || !hasMore || payments.length === 0) return;
-    setLoadingMore(true);
-    setPage((p) => p + 1);
+  const goToNextPage = () => {
+    if (page < totalPages) {
+      setPageLoading(true);
+      loadPayments(page + 1);
+    }
   };
 
-  useEffect(() => {
-    if (!loadingMore || page === 1) return;
-    const fetchMore = async () => {
-      try {
-        const statusParam = filter === 'all' ? undefined : filter;
-        const response = await api.admin.partialPayments({
-          page,
-          limit: 20,
-          status: statusParam,
-        }) as any;
-        if (response.success && response.data) {
-          const d = response.data;
-          const newPayments = d.payments || [];
-          const pag = d.pagination;
-          setPayments((prev) => [...prev, ...newPayments]);
-          setHasMore(pag ? pag.page < pag.pages : false);
-        }
-      } catch (err: any) {
-        Toast.show({ type: 'error', title: 'Failed to Load More', message: getErrorMessage(err) });
-      } finally {
-        setLoadingMore(false);
-      }
-    };
-    fetchMore();
-  }, [page, loadingMore, filter]);
+  const goToPrevPage = () => {
+    if (page > 1) {
+      setPageLoading(true);
+      loadPayments(page - 1);
+    }
+  };
 
   const sortedPayments = React.useMemo(() => {
     const sorted = [...payments];
@@ -286,6 +277,28 @@ export default function AdminPartialPaymentsScreen({ navigation }: any) {
             );
           })}
         </ScrollView>
+
+        {/* Search bar */}
+        <View style={S.searchWrapper}>
+          <View style={S.searchBar}>
+            <Icon name="search-outline" size={18} color="rgba(255,255,255,0.5)" />
+            <TextInput
+              style={S.searchInput}
+              placeholder="Search name, phone, txn ID..."
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {searchTerm.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Icon name="close-circle" size={18} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
 
       {/* Sort toggle */}
@@ -324,15 +337,42 @@ export default function AdminPartialPaymentsScreen({ navigation }: any) {
   );
 
   const ListFooter = () =>
-    loadingMore ? (
-      <View style={S.footerLoader}>
-        <Text style={S.footerLoaderText}>Loading more...</Text>
+    totalPages > 1 ? (
+      <View style={S.paginationRow}>
+        <TouchableOpacity
+          style={[S.pageButton, page <= 1 && S.pageButtonDisabled]}
+          onPress={goToPrevPage}
+          disabled={page <= 1 || pageLoading}
+          activeOpacity={0.7}
+        >
+          <Icon name="chevron-back-outline" size={18} color={page <= 1 ? Colors.gray300 : Colors.brand} />
+        </TouchableOpacity>
+
+        <View style={S.pageInfo}>
+          {pageLoading ? (
+            <ActivityIndicator size="small" color={Colors.brand} />
+          ) : (
+            <>
+              <Text style={S.pageInfoText}>Page {page} of {totalPages}</Text>
+              <Text style={S.pageInfoSub}>{totalCount} total</Text>
+            </>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[S.pageButton, page >= totalPages && S.pageButtonDisabled]}
+          onPress={goToNextPage}
+          disabled={page >= totalPages || pageLoading}
+          activeOpacity={0.7}
+        >
+          <Icon name="chevron-forward-outline" size={18} color={page >= totalPages ? Colors.gray300 : Colors.brand} />
+        </TouchableOpacity>
       </View>
     ) : null;
 
   if (loading) return <Loading message="Loading partial payments..." />;
   if (error && payments.length === 0)
-    return <ErrorState title="Failed to Load" message={error} onRetry={() => loadPayments(true)} />;
+    return <ErrorState title="Failed to Load" message={error} onRetry={() => { setLoading(true); loadPayments(1); }} />;
 
   return (
     <View style={S.root}>
@@ -347,8 +387,7 @@ export default function AdminPartialPaymentsScreen({ navigation }: any) {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />
         }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
+        scrollsToTop
       />
 
       {/* Detail Modal */}
@@ -596,9 +635,32 @@ const S = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: Theme.fontWeight.bold, color: Colors.textPrimary, marginBottom: 8 },
   emptyText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
 
-  // Footer
-  footerLoader: { paddingVertical: 16, alignItems: 'center' },
-  footerLoaderText: { fontSize: 13, color: Colors.textSecondary },
+  // Search
+  searchWrapper: { paddingHorizontal: 22, paddingBottom: 16 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: GLASS_LIGHT, borderWidth: 1, borderColor: GLASS_BORDER,
+    borderRadius: 16, paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, color: Colors.white,
+    fontWeight: Theme.fontWeight.medium, padding: 0,
+  },
+
+  // Pagination
+  paginationRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 16, paddingHorizontal: 20, gap: 16,
+  },
+  pageButton: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.gray200, ...Theme.shadows.sm,
+  },
+  pageButtonDisabled: { opacity: 0.4 },
+  pageInfo: { alignItems: 'center', minWidth: 100 },
+  pageInfoText: { fontSize: 14, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary },
+  pageInfoSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
 
   // Modal
   modalOverlay: {

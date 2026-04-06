@@ -579,15 +579,21 @@ export const api = {
       apiClient.get<T>('/admin/stats', params),
     hosts: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
       apiClient.get<T>('/admin/hosts', params),
-    approveHost: (id: string, data?: { message?: string }) =>
-      apiClient.post(`/admin/hosts/${id}/approve`, data || {}),
-    rejectHost: (id: string, data?: { message?: string }) =>
-      apiClient.post(`/admin/hosts/${id}/reject`, data || {}),
+    approveHost: (id: string, data: { status: 'approved'; note?: string }) =>
+      apiClient.post(`/admin/hosts/${id}/approve`, data),
+    rejectHost: (id: string, data: { status: 'rejected'; note?: string; cancelBookings?: boolean }) =>
+      apiClient.post(`/admin/hosts/${id}/reject`, data),
+    getHostBookingsCount: <T = any>(id: string) =>
+      apiClient.get<T>(`/admin/hosts/${id}/bookings-count`),
+    getHostNid: <T = any>(id: string) =>
+      apiClient.get<T>(`/admin/hosts/${id}/nid`),
     rooms: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
       apiClient.get<T>('/admin/rooms', params),
-    approveRoom: (id: string, data?: { message?: string }) =>
+    getRoom: <T = any>(id: string) => apiClient.get<T>(`/admin/rooms/${id}`),
+    updateRoom: (id: string, data: any) => apiClient.put(`/admin/rooms/${id}`, data),
+    approveRoom: (id: string, data?: { status?: string; commissionTk?: number; message?: string }) =>
       apiClient.post(`/admin/rooms/${id}/approve`, data || {}),
-    rejectRoom: (id: string, data?: { message?: string }) =>
+    rejectRoom: (id: string, data?: { status?: string; message?: string }) =>
       apiClient.post(`/admin/rooms/${id}/reject`, data || {}),
     bookings: <T = any>(params?: { page?: number; limit?: number; status?: string; q?: string }) =>
       apiClient.get<T>('/admin/bookings', params),
@@ -605,6 +611,8 @@ export const api = {
       apiClient.get<T>(`/admin/whatsapp-chats/${phone}`, params),
     whatsappChatStatus: <T = any>(phone: string) =>
       apiClient.get<T>(`/admin/whatsapp-chats/${phone}/status`),
+    whatsappMarkRead: (phone: string) =>
+      apiClient.post(`/admin/whatsapp-chats/${phone}/mark-read`),
     whatsappReply: (phone: string, message: string) =>
       apiClient.post(`/admin/whatsapp-chats/${phone}/reply`, { message }),
     whatsappToggleBot: (phone: string, enabled: boolean) =>

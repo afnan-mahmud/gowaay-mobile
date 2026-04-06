@@ -51,6 +51,7 @@ interface ConversationItem {
   lastDirection: 'incoming' | 'outgoing';
   lastSenderType: 'customer' | 'bot' | 'host' | 'admin';
   totalMessages: number;
+  unreadCount: number;
 }
 
 interface ChatMessage {
@@ -213,6 +214,11 @@ export default function AdminWhatsAppChatsScreen({ navigation }: any) {
     setShowMenu(false);
     loadMessages(phone, true);
     loadConvStatus(phone);
+    api.admin.whatsappMarkRead(phone).then(() => {
+      setConversations(prev =>
+        prev.map(c => c.customerNumber === phone ? { ...c, unreadCount: 0 } : c)
+      );
+    }).catch(() => {});
   };
 
   const goBack = () => {
@@ -222,6 +228,7 @@ export default function AdminWhatsAppChatsScreen({ navigation }: any) {
     setReplyText('');
     setActivePanel(null);
     setShowMenu(false);
+    loadConversations(true);
   };
 
   const onRefresh = () => {
@@ -951,21 +958,27 @@ export default function AdminWhatsAppChatsScreen({ navigation }: any) {
                 </View>
               </View>
               <View style={S.convCenter}>
-                <Text style={S.convPhone}>{formatPhone(item.customerNumber)}</Text>
+                <Text style={[S.convPhone, item.unreadCount > 0 && S.convPhoneUnread]}>{formatPhone(item.customerNumber)}</Text>
                 <View style={S.convPreviewRow}>
                   {item.lastDirection === 'outgoing' && (
                     <Icon name="checkmark-done-outline" size={14} color={isAdminMsg ? ADMIN_PURPLE : BOT_BLUE} style={{ marginRight: 4 }} />
                   )}
-                  <Text style={S.convPreview} numberOfLines={1}>
+                  <Text style={[S.convPreview, item.unreadCount > 0 && S.convPreviewUnread]} numberOfLines={1}>
                     {isAdminMsg ? '👤 ' : isBot ? '🤖 ' : ''}{item.lastMessage || 'No messages'}
                   </Text>
                 </View>
               </View>
               <View style={S.convRight}>
-                <Text style={S.convTime}>{formatTime(item.lastMessageAt)}</Text>
-                <View style={S.convBadge}>
-                  <Text style={S.convBadgeText}>{item.totalMessages}</Text>
-                </View>
+                <Text style={[S.convTime, item.unreadCount > 0 && S.convTimeUnread]}>{formatTime(item.lastMessageAt)}</Text>
+                {item.unreadCount > 0 ? (
+                  <View style={S.convBadge}>
+                    <Text style={S.convBadgeText}>{item.unreadCount}</Text>
+                  </View>
+                ) : (
+                  <View style={S.convBadgeMuted}>
+                    <Text style={S.convBadgeMutedText}>{item.totalMessages}</Text>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           );
@@ -1032,15 +1045,23 @@ const S = StyleSheet.create({
   },
   convCenter: { flex: 1, marginRight: 8 },
   convPhone: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, marginBottom: 3 },
+  convPhoneUnread: { fontWeight: Theme.fontWeight.bold },
   convPreviewRow: { flexDirection: 'row', alignItems: 'center' },
   convPreview: { fontSize: 13, color: Colors.textSecondary, flex: 1 },
+  convPreviewUnread: { color: Colors.textPrimary, fontWeight: Theme.fontWeight.semibold },
   convRight: { alignItems: 'flex-end' },
   convTime: { fontSize: 11, color: Colors.textSecondary, marginBottom: 6 },
+  convTimeUnread: { color: WA_GREEN, fontWeight: Theme.fontWeight.semibold },
   convBadge: {
     backgroundColor: WA_GREEN, borderRadius: 10,
     paddingHorizontal: 7, paddingVertical: 2, minWidth: 22, alignItems: 'center',
   },
   convBadgeText: { fontSize: 11, fontWeight: Theme.fontWeight.bold, color: Colors.white },
+  convBadgeMuted: {
+    backgroundColor: Colors.gray100, borderRadius: 10,
+    paddingHorizontal: 7, paddingVertical: 2, minWidth: 22, alignItems: 'center',
+  },
+  convBadgeMutedText: { fontSize: 11, fontWeight: Theme.fontWeight.medium, color: Colors.textSecondary },
 
   // ─── Detail Header ─────────────────────────────────
   detailHeader: { overflow: 'visible' },
