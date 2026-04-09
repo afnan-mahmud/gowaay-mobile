@@ -720,15 +720,15 @@ export default function ChatScreen({ route, navigation }: any) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={100}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.container}>
         <FlatList
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item._id}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.messageList}
           ListHeaderComponent={renderHeader}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
@@ -797,7 +797,6 @@ export default function ChatScreen({ route, navigation }: any) {
             <Text style={styles.sendButtonText}>Send</Text>
           </TouchableOpacity>
         </View>
-      </View>
     </KeyboardAvoidingView>
   );
 }

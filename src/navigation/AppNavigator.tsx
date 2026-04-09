@@ -14,6 +14,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BootSplash from 'react-native-bootsplash';
 import { useAuth } from '../context/AuthContext';
 import Loading from '../components/Loading';
 import { Theme } from '../constants/theme';
@@ -575,6 +576,29 @@ export default function AppNavigator() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const [navStateReady, setNavStateReady] = useState(false);
   const [initialNavState, setInitialNavState] = useState<NavigationState | undefined>();
+  const splashTimerDone = useRef(false);
+  const splashHidden = useRef(false);
+
+  const hideSplashIfReady = useCallback(() => {
+    if (splashTimerDone.current && !authLoading && navStateReady && !splashHidden.current) {
+      splashHidden.current = true;
+      BootSplash.hide({ fade: true }).catch(() => {});
+    }
+  }, [authLoading, navStateReady]);
+
+  // Minimum 2s splash hold to let APIs load in the background
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      splashTimerDone.current = true;
+      hideSplashIfReady();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [hideSplashIfReady]);
+
+  // Hide splash once auth + nav state are both ready (and timer elapsed)
+  useEffect(() => {
+    hideSplashIfReady();
+  }, [hideSplashIfReady]);
 
   // Restore persisted navigation state on mount
   useEffect(() => {
@@ -610,7 +634,7 @@ export default function AppNavigator() {
   }, [isAuthenticated]);
 
   if (authLoading || !navStateReady) {
-    return <Loading message="Loading..." />;
+    return null;
   }
 
   const isHost = user?.role === 'host';

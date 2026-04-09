@@ -520,8 +520,8 @@ export default function AdminWhatsAppChatsScreen({ navigation }: any) {
     return (
       <KeyboardAvoidingView
         style={S.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header with bot toggle */}
         <View style={S.detailHeader}>

@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
+import CachedImage from '../../components/CachedImage';
 import { api } from '../../api/client';
 import Button from '../../components/Button';
 import Icon from '../../components/Icon';
@@ -186,9 +187,9 @@ export default function HostProfileEditScreen({ navigation }: any) {
       const profileData: any = {
         displayName: displayName.trim(),
         phone: phone.trim(),
-        whatsapp: whatsapp.trim(),
-        locationName: locationName.trim(),
-        locationMapUrl: locationMapUrl.trim(),
+        whatsapp: whatsapp.trim() || undefined,
+        locationName: locationName.trim() || undefined,
+        locationMapUrl: locationMapUrl.trim() || undefined,
       };
 
       // Add profile picture URL if uploaded
@@ -248,6 +249,37 @@ export default function HostProfileEditScreen({ navigation }: any) {
         {/* Basic Info */}
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
+
+          {/* Avatar */}
+          <View style={styles.avatarSection}>
+            <View style={styles.avatar}>
+              {profilePictureUrl ? (
+                <CachedImage
+                  source={{ uri: getImageUrl(profilePictureUrl) }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {displayName?.charAt(0)?.toUpperCase() || 'H'}
+                </Text>
+              )}
+              {uploadingImage && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="small" color={Colors.white} />
+                </View>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.changePhotoButton, uploadingImage && styles.changePhotoButtonDisabled]}
+              onPress={handlePickImage}
+              disabled={uploadingImage}
+            >
+              <Text style={styles.changePhotoText}>
+                {uploadingImage ? 'Uploading...' : 'Change Photo'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Input
             label="Display Name*"

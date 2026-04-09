@@ -8,6 +8,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/Toast';
+import UpdateChecker from './src/components/UpdateChecker';
 
 // Note: Push notification initialization is now handled by AuthContext
 // after successful login/register/auth-check, ensuring the FCM token
@@ -20,6 +21,7 @@ export default function App() {
         <ToastProvider>
           <AuthProvider>
             <AppNavigator />
+            <UpdateChecker />
           </AuthProvider>
         </ToastProvider>
       </SafeAreaProvider>

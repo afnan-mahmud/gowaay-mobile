@@ -24,7 +24,7 @@ const MENU_GROUPS = (user: any, navigation: any) => {
   const isHost = user?.role === 'host';
 
   const accountItems: any[] = [
-    { icon: 'person-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: 'Edit Profile', sub: 'Update your personal info', onPress: () => navigation.navigate('EditProfile') },
+    { icon: 'person-outline', iconBg: '#EFF6FF', iconColor: '#2563EB', title: 'Edit Profile', sub: 'Update your personal info', onPress: () => navigation.navigate(isHost ? 'HostProfileEdit' : 'EditProfile') },
   ];
   if (!isAdmin && !isHost) {
     accountItems.push({ icon: 'heart-outline', iconBg: '#FFF1F2', iconColor: Colors.brand, title: 'Favorites', sub: 'Your saved properties', onPress: () => navigation.navigate('Favorites') });

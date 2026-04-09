@@ -82,7 +82,7 @@ export default function AdminChatScreen({ navigation }: any) {
   const loadThreads = useCallback(async () => {
     try {
       setError(null);
-      const res: ApiResponse<ThreadsResponse> = await api.chat.getThreads({ page: 1, limit: 50 });
+      const res = await api.chat.getThreads({ page: 1, limit: 50 }) as ApiResponse<ThreadsResponse>;
       if (res.success && res.data) {
         setThreads((res.data as any).threads || []);
       } else {
@@ -103,7 +103,7 @@ export default function AdminChatScreen({ navigation }: any) {
   const loadMessages = useCallback(async (threadId: string) => {
     try {
       setMsgLoading(true);
-      const res: ApiResponse<MessagesResponse> = await api.chat.getMessages(threadId, { page: 1, limit: 200 });
+      const res = await api.chat.getMessages(threadId, { page: 1, limit: 200 }) as ApiResponse<MessagesResponse>;
       if (res.success && res.data) {
         setMessages((res.data as any).messages || []);
       }
@@ -228,7 +228,7 @@ export default function AdminChatScreen({ navigation }: any) {
 
   // ─── Chat Detail ──────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView style={S.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+    <KeyboardAvoidingView style={S.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       {/* Header */}
       <View style={S.chatHeader}>
         <View style={S.chatHeaderBg} />
