@@ -90,7 +90,9 @@ export default function LoginScreen({ navigation, route }: any) {
     try {
       const result = await loginWithOtp(normalizedPhone, otpCode, isNewUser ? name : undefined);
       if (result.success) {
-        if (pendingHostApplication) {
+        if (pendingHostApplication && (result as any).role === 'host') {
+          navigation.replace('Dashboard');
+        } else if (pendingHostApplication) {
           setTimeout(() => navigation.navigate('HostApplication'), 150);
         } else if (redirectTo) {
           navigation.replace(redirectTo, redirectParams);

@@ -522,31 +522,89 @@ export default function AddEditRoomScreen({ route, navigation }: any) {
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Property Details</Text>
 
-          <View style={styles.propertyDetailsRow}>
-            <Input
-              label="Max Guests*"
-              placeholder="4"
-              value={maxGuests}
-              onChangeText={setMaxGuests}
-              keyboardType="number-pad"
-              style={styles.guestsInput}
-            />
-            <Input
-              label="Beds*"
-              placeholder="2"
-              value={beds}
-              onChangeText={setBeds}
-              keyboardType="number-pad"
-              style={styles.bedsInput}
-            />
-            <Input
-              label="Baths*"
-              placeholder="1"
-              value={baths}
-              onChangeText={setBaths}
-              keyboardType="number-pad"
-              style={styles.bathsInput}
-            />
+          {/* Max Guests */}
+          <View style={styles.stepperRow}>
+            <View style={styles.stepperLeft}>
+              <Icon name="people-outline" size={22} color={Colors.brand} />
+              <View style={styles.stepperLabelWrap}>
+                <Text style={styles.stepperLabel}>Max Guests</Text>
+                <Text style={styles.stepperSub}>Maximum occupancy</Text>
+              </View>
+            </View>
+            <View style={styles.stepper}>
+              <TouchableOpacity
+                style={[styles.stepBtn, parseInt(maxGuests || '1') <= 1 && styles.stepBtnDisabled]}
+                onPress={() => setMaxGuests(Math.max(1, parseInt(maxGuests || '1') - 1).toString())}
+                disabled={parseInt(maxGuests || '1') <= 1}
+              >
+                <Icon name="remove-outline" size={18} color={parseInt(maxGuests || '1') <= 1 ? Colors.gray300 : Colors.brand} />
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>{maxGuests || '0'}</Text>
+              <TouchableOpacity
+                style={styles.stepBtn}
+                onPress={() => setMaxGuests((parseInt(maxGuests || '0') + 1).toString())}
+              >
+                <Icon name="add-outline" size={18} color={Colors.brand} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.stepperDivider} />
+
+          {/* Beds */}
+          <View style={styles.stepperRow}>
+            <View style={styles.stepperLeft}>
+              <Icon name="bed-outline" size={22} color={Colors.brand} />
+              <View style={styles.stepperLabelWrap}>
+                <Text style={styles.stepperLabel}>Beds</Text>
+                <Text style={styles.stepperSub}>Number of beds</Text>
+              </View>
+            </View>
+            <View style={styles.stepper}>
+              <TouchableOpacity
+                style={[styles.stepBtn, parseInt(beds || '1') <= 1 && styles.stepBtnDisabled]}
+                onPress={() => setBeds(Math.max(1, parseInt(beds || '1') - 1).toString())}
+                disabled={parseInt(beds || '1') <= 1}
+              >
+                <Icon name="remove-outline" size={18} color={parseInt(beds || '1') <= 1 ? Colors.gray300 : Colors.brand} />
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>{beds || '0'}</Text>
+              <TouchableOpacity
+                style={styles.stepBtn}
+                onPress={() => setBeds((parseInt(beds || '0') + 1).toString())}
+              >
+                <Icon name="add-outline" size={18} color={Colors.brand} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.stepperDivider} />
+
+          {/* Baths */}
+          <View style={styles.stepperRow}>
+            <View style={styles.stepperLeft}>
+              <Icon name="water-outline" size={22} color={Colors.brand} />
+              <View style={styles.stepperLabelWrap}>
+                <Text style={styles.stepperLabel}>Baths</Text>
+                <Text style={styles.stepperSub}>Number of bathrooms</Text>
+              </View>
+            </View>
+            <View style={styles.stepper}>
+              <TouchableOpacity
+                style={[styles.stepBtn, parseInt(baths || '1') <= 1 && styles.stepBtnDisabled]}
+                onPress={() => setBaths(Math.max(1, parseInt(baths || '1') - 1).toString())}
+                disabled={parseInt(baths || '1') <= 1}
+              >
+                <Icon name="remove-outline" size={18} color={parseInt(baths || '1') <= 1 ? Colors.gray300 : Colors.brand} />
+              </TouchableOpacity>
+              <Text style={styles.stepperValue}>{baths || '0'}</Text>
+              <TouchableOpacity
+                style={styles.stepBtn}
+                onPress={() => setBaths((parseInt(baths || '0') + 1).toString())}
+              >
+                <Icon name="add-outline" size={18} color={Colors.brand} />
+              </TouchableOpacity>
+            </View>
           </View>
         </Card>
 
@@ -811,19 +869,57 @@ const styles = StyleSheet.create({
   thirdInput: {
     flex: 1,
   },
-  propertyDetailsRow: {
+  stepperRow: {
     flexDirection: 'row',
-    gap: Theme.spacing.sm,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
   },
-  guestsInput: {
+  stepperLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
   },
-  bedsInput: {
-    flex: 1.5, // Make beds input bigger for better visibility
+  stepperLabelWrap: {
+    gap: 2,
   },
-  bathsInput: {
-    flex: 1,
+  stepperLabel: {
+    fontSize: 15,
+    fontWeight: Theme.fontWeight.medium,
+    color: Colors.textPrimary,
+  },
+  stepperSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stepBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: Colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnDisabled: {
+    borderColor: Colors.gray200,
+  },
+  stepperValue: {
+    fontSize: 18,
+    fontWeight: Theme.fontWeight.bold,
+    color: Colors.textPrimary,
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  stepperDivider: {
+    height: 1,
+    backgroundColor: Colors.gray100,
   },
   priceNote: {
     fontSize: 12,

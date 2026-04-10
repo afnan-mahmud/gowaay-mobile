@@ -147,10 +147,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await apiClient.setRefreshToken(refreshToken);
         }
 
-        setUser(normalizeUser(userData));
+        const normalized = normalizeUser(userData);
+        setUser(normalized);
         NotificationService.initialize().catch(() => {});
 
-        return { success: true };
+        return { success: true, role: normalized.role };
       } else {
         return { success: false, message: response.message || response.error || 'OTP verification failed' };
       }
