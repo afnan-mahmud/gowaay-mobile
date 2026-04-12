@@ -13,6 +13,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import CachedImage from '../../components/CachedImage';
 import Button from '../../components/Button';
@@ -83,8 +84,9 @@ const SORT_OPTIONS: { key: SortOption; label: string; icon: string }[] = [
 ];
 
 export default function SearchScreen({ navigation, route }: any) {
-  const { location, checkIn, checkOut, guests, isSearching } = route.params || {};
-  const [searchQuery, setSearchQuery] = useState(route.params?.query || location || '');
+  const insets = useSafeAreaInsets();
+  const { location, searchQuery: routeSearchQuery, checkIn, checkOut, guests, isSearching } = route.params || {};
+  const [searchQuery, setSearchQuery] = useState(routeSearchQuery || route.params?.query || location || '');
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -418,7 +420,7 @@ export default function SearchScreen({ navigation, route }: any) {
               ? `rh-${(item as RateHawkHotel).hotelId}`
               : (item as Room)._id
           }
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: 16 + insets.bottom }]}
           ListEmptyComponent={
             !searched ? (
               <View style={styles.emptyContainer}>

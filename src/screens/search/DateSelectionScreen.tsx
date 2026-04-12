@@ -10,13 +10,15 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import Button from '../../components/Button';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 
 export default function DateSelectionScreen({ navigation, route }: any) {
-  const { location, returnToBooking, initialCheckIn, initialCheckOut, roomId } = route.params || {};
+  const insets = useSafeAreaInsets();
+  const { location, searchQuery, returnToBooking, initialCheckIn, initialCheckOut, roomId } = route.params || {};
   const [checkIn, setCheckIn] = useState(initialCheckIn || '');
   const [checkOut, setCheckOut] = useState(initialCheckOut || '');
 
@@ -87,6 +89,7 @@ export default function DateSelectionScreen({ navigation, route }: any) {
       // Normal flow - navigate to GuestSelection
       navigation.navigate('GuestSelection', {
         location,
+        searchQuery,
         checkIn,
         checkOut,
       });
@@ -103,7 +106,7 @@ export default function DateSelectionScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: 14 + insets.top }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
@@ -173,7 +176,7 @@ export default function DateSelectionScreen({ navigation, route }: any) {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 14 + insets.bottom }]}>
         <TouchableOpacity
           style={styles.clearButton}
           onPress={() => {

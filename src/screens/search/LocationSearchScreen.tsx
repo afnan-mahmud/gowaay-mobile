@@ -14,6 +14,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Theme } from '../../constants/theme';
 import { Colors } from '../../constants/colors';
 import { api } from '../../api/client';
@@ -41,6 +42,7 @@ interface LocationSuggestion {
 }
 
 export default function LocationSearchScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -133,7 +135,9 @@ export default function LocationSearchScreen({ navigation }: any) {
 
   const handleSelectLocation = (location: string) => {
     // Navigate to date selection screen
-    navigation.navigate('DateSelection', { location });
+    // Pass the user's typed text as searchQuery so the final search is broad
+    // (e.g. "mohammadpur" matches all properties, not just "Mohammadpur, Dhaka")
+    navigation.navigate('DateSelection', { location, searchQuery: searchText.trim() || location });
   };
 
   return (
@@ -141,7 +145,7 @@ export default function LocationSearchScreen({ navigation }: any) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
@@ -199,11 +203,6 @@ export default function LocationSearchScreen({ navigation }: any) {
                 </View>
                 <View style={styles.locationInfo}>
                   <Text style={styles.locationText}>{item.label}</Text>
-                  {item.source === 'ratehawk' ? (
-                    <Text style={styles.locationCount}>International hotels</Text>
-                  ) : item.count ? (
-                    <Text style={styles.locationCount}>{item.count} properties</Text>
-                  ) : null}
                 </View>
                 <Icon name="chevron-forward-outline" size={18} color={Colors.textTertiary} />
               </TouchableOpacity>
@@ -229,7 +228,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 12,
+    paddingHorizontal: 16, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: Colors.gray100,
   },
   backButton: {

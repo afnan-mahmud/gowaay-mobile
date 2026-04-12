@@ -23,6 +23,17 @@ import { Theme } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+interface DescriptionSection {
+  title: string;
+  paragraphs: string[];
+}
+
+interface AmenityGroup {
+  groupName: string;
+  amenities: string[];
+  nonFreeAmenities: string[];
+}
+
 interface HotelData {
   hotelId: string;
   name: string;
@@ -40,6 +51,16 @@ interface HotelData {
   checkIn: string;
   checkOut: string;
   allotment: number;
+  descriptionStruct: DescriptionSection[];
+  amenityGroups: AmenityGroup[];
+  checkInTime: string;
+  checkOutTime: string;
+  kind: string;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string;
+  hotelChain: string;
+  metapolicyExtraInfo: string;
 }
 
 const MEAL_LABELS: Record<string, string> = {
@@ -280,6 +301,114 @@ export default function HotelDetailScreen({ navigation, route }: any) {
             )}
           </View>
 
+          {/* About this property */}
+          {hotel.descriptionStruct && hotel.descriptionStruct.length > 0 && (
+            <View style={styles.infoCard}>
+              <Text style={styles.sectionTitle}>About this property</Text>
+              {hotel.descriptionStruct.map((section, i) => (
+                <View key={i} style={i > 0 ? styles.descSection : undefined}>
+                  {!!section.title && (
+                    <Text style={styles.descSectionTitle}>{section.title}</Text>
+                  )}
+                  {section.paragraphs.map((p, j) => (
+                    <Text key={j} style={styles.descText}>{p}</Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Amenities */}
+          {hotel.amenityGroups && hotel.amenityGroups.length > 0 && (
+            <View style={styles.infoCard}>
+              <Text style={styles.sectionTitle}>Amenities</Text>
+              {hotel.amenityGroups.filter(g => g.amenities.length > 0).map((group, i) => (
+                <View key={i} style={i > 0 ? styles.amenityGroup : undefined}>
+                  <Text style={styles.amenityGroupName}>{group.groupName}</Text>
+                  {group.amenities.map((a, j) => (
+                    <View key={j} style={styles.amenityRow}>
+                      <Icon name="checkmark-circle-outline" size={14} color="#22C55E" />
+                      <Text style={styles.amenityText}>{a}</Text>
+                      {group.nonFreeAmenities.includes(a) && (
+                        <Text style={styles.paidBadge}>Paid</Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Hotel Information */}
+          {(!!hotel.checkInTime || !!hotel.checkOutTime || !!hotel.phone || !!hotel.hotelChain || !!hotel.kind) && (
+            <View style={styles.infoCard}>
+              <Text style={styles.sectionTitle}>Hotel Information</Text>
+              <View style={styles.hotelInfoGrid}>
+                {!!hotel.checkInTime && (
+                  <View style={styles.hotelInfoItem}>
+                    <Icon name="time-outline" size={16} color={Colors.brand} />
+                    <View style={styles.hotelInfoText}>
+                      <Text style={styles.hotelInfoLabel}>Check-in</Text>
+                      <Text style={styles.hotelInfoValue}>{hotel.checkInTime}</Text>
+                    </View>
+                  </View>
+                )}
+                {!!hotel.checkOutTime && (
+                  <View style={styles.hotelInfoItem}>
+                    <Icon name="time-outline" size={16} color={Colors.brand} />
+                    <View style={styles.hotelInfoText}>
+                      <Text style={styles.hotelInfoLabel}>Check-out</Text>
+                      <Text style={styles.hotelInfoValue}>{hotel.checkOutTime}</Text>
+                    </View>
+                  </View>
+                )}
+                {!!hotel.phone && (
+                  <View style={styles.hotelInfoItem}>
+                    <Icon name="call-outline" size={16} color={Colors.brand} />
+                    <View style={styles.hotelInfoText}>
+                      <Text style={styles.hotelInfoLabel}>Phone</Text>
+                      <Text
+                        style={[styles.hotelInfoValue, styles.link]}
+                        onPress={() => Linking.openURL(`tel:${hotel.phone}`)}
+                      >
+                        {hotel.phone}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {!!hotel.hotelChain && (
+                  <View style={styles.hotelInfoItem}>
+                    <Icon name="business-outline" size={16} color={Colors.brand} />
+                    <View style={styles.hotelInfoText}>
+                      <Text style={styles.hotelInfoLabel}>Chain</Text>
+                      <Text style={styles.hotelInfoValue}>{hotel.hotelChain}</Text>
+                    </View>
+                  </View>
+                )}
+                {!!hotel.kind && (
+                  <View style={styles.hotelInfoItem}>
+                    <Icon name="home-outline" size={16} color={Colors.brand} />
+                    <View style={styles.hotelInfoText}>
+                      <Text style={styles.hotelInfoLabel}>Type</Text>
+                      <Text style={styles.hotelInfoValue}>{hotel.kind}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Hotel Policies */}
+          {!!hotel.metapolicyExtraInfo && (
+            <View style={styles.infoCard}>
+              <Text style={styles.sectionTitle}>Hotel Policies</Text>
+              <View style={styles.policyRow}>
+                <Icon name="information-circle-outline" size={16} color={Colors.textTertiary} style={styles.policyIcon} />
+                <Text style={styles.policyText}>{hotel.metapolicyExtraInfo}</Text>
+              </View>
+            </View>
+          )}
+
           {/* Guest Name Form */}
           {showGuestForm && (
             <View style={styles.infoCard}>
@@ -421,6 +550,23 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, marginBottom: 10 },
   infoText: { fontSize: 14, color: Colors.textSecondary, flex: 1 },
   guestHint: { fontSize: 12, color: Colors.textTertiary, marginBottom: 12 },
+  descSection: { marginTop: 12 },
+  descSectionTitle: { fontSize: 13, fontWeight: Theme.fontWeight.semibold, color: Colors.textPrimary, marginBottom: 4 },
+  descText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20, marginBottom: 4 },
+  amenityGroup: { marginTop: 14 },
+  amenityGroupName: { fontSize: 11, fontWeight: Theme.fontWeight.semibold, color: Colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  amenityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  amenityText: { fontSize: 13, color: Colors.textSecondary, flex: 1 },
+  paidBadge: { fontSize: 10, color: '#F59E0B', fontWeight: Theme.fontWeight.medium },
+  hotelInfoGrid: { gap: 12 },
+  hotelInfoItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  hotelInfoText: { flex: 1 },
+  hotelInfoLabel: { fontSize: 11, color: Colors.textTertiary, marginBottom: 1 },
+  hotelInfoValue: { fontSize: 13, fontWeight: Theme.fontWeight.medium, color: Colors.textPrimary },
+  link: { color: Colors.brand },
+  policyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  policyIcon: { marginTop: 1 },
+  policyText: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20, flex: 1 },
   inputWrapper: { marginBottom: 12 },
   inputLabel: { fontSize: 13, fontWeight: Theme.fontWeight.medium, color: Colors.textSecondary, marginBottom: 6 },
   inputBox: {
